@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "marpha",
+    "name": "معرفه",
     "slug": "marpha",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,6 +8,9 @@
     "scheme": "marpha",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "extra": {
+      "supportsRTL": true
+    },
     "ios": {
       "supportsTablet": true
     },
