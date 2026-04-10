@@ -121,7 +121,7 @@ export default function TeacherQuizzesScreen() {
         {loading ? <View style={styles.centerBox}><ActivityIndicator size='large' color={C.primary} /></View>
           : quizzes.length === 0 ? <View style={styles.centerBox}><Ionicons name='folder-open-outline' size={64} color={C.borderLight} /><Text style={styles.emptyText}>لا توجد اختبارات مضافة حالياً.</Text></View>
           : <FlatList data={quizzes} keyExtractor={item => item.id} contentContainerStyle={styles.listContainer} renderItem={({ item }) => (
-              <View style={styles.quizCard}>
+              <TouchableOpacity style={styles.quizCard} onPress={() => router.push({ pathname: "/submissions/[quizId]", params: { quizId: item.id, quizTitle: item.title } } as any)}>
                 <View style={styles.quizHeaderRow}>
                   <View style={styles.quizIconCircle}><Ionicons name='images' size={24} color={C.accent} /></View>
                   <View style={styles.quizInfo}>
