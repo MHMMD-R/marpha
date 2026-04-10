@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "marpha-app-58291"
+  },
+  "targets": {
+    "marpha-app-58291": {
+      "hosting": {
+        "dashboard": [
+          "marpha-app-58291"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

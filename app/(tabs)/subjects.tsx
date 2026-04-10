@@ -1,506 +1,431 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Animated,
     Dimensions,
+    Easing,
     I18nManager,
+    Image,
     Platform,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../../firebase";
+
 const { width: SCREEN_W } = Dimensions.get("window");
 
+// Exact color palette from the Home Page
 const C = {
-  maroon: "#0c3b35",
-  maroonDeep: "#08221f",
-  maroonSoft: "#14594f",
-  maroonGlow: "#1a7568",
-  rose: "#a0d8cc",
-  gold: "#D4A043",
-  goldLight: "#F5DBA3",
-  bg: "#F0F2F1",
-  surface: "#FFFFFF",
-  surfaceWarm: "#F5FAF8",
-  text: "#0F1A18",
-  textMuted: "#7A8A85",
-  overlay: "rgba(8, 34, 31, 0.55)",
+  bgTop: '#0B2923',
+  bgMain: '#F4F7F6',
+  heroCard: '#0A1C18',
+  heroDecor: '#152C26',
+  stationDark: '#12453D',
+  stationIconBg: '#2E5E55',
+  white: '#FFFFFF',
+  gold: '#E3A736',
+  goldTrack: '#233935',
+  textLight: '#FFFFFF',
+  textGrayLight: '#9FB5AF',
+  textDark: '#111A18',
+  textGrayDark: '#8A9592',
 };
 
-const GRADES_OPTIONS = [
-  "الرابع الإعدادي",
-  "الخامس الإعدادي",
-  "السادس الإعدادي"
-];
-
-const CLASSES_DATA: Record<string, any[]> = {
-  "الرابع الإعدادي": [
-    { id: 1, title: "التربية الإسلامية", professor: "أ. محمد", lessonsCount: "10 دروس", icon: "book-outline", color: C.maroonSoft, progress: "100%" },
-    { id: 2, title: "اللغة العربية", professor: "أ. زينب", lessonsCount: "25 درس", icon: "library", color: C.gold, progress: "45%" },
-    { id: 3, title: "اللغة الإنجليزية", professor: "أ. سارة", lessonsCount: "20 درس", icon: "language", color: C.text, progress: "60%" },
-    { id: 4, title: "الرياضيات", professor: "أ. علي", lessonsCount: "30 درس", icon: "calculator", color: C.maroon, progress: "20%" },
-    { id: 5, title: "الفيزياء", professor: "أ. محمود", lessonsCount: "22 درس", icon: "flash", color: C.maroonSoft, progress: "35%" },
-    { id: 6, title: "الكيمياء", professor: "أ. حسين", lessonsCount: "18 درس", icon: "flask", color: C.gold, progress: "10%" },
-    { id: 7, title: "الأحياء", professor: "أ. فاطمة", lessonsCount: "24 درس", icon: "leaf", color: C.maroon, progress: "15%" },
-    { id: 8, title: "الحاسوب", professor: "أ. عمر", lessonsCount: "14 درس", icon: "desktop-outline", color: C.text, progress: "80%" },
-  ],
-  "الخامس الإعدادي": [
-    { id: 9, title: "التربية الإسلامية", professor: "أ. مصطفى", lessonsCount: "10 دروس", icon: "book-outline", color: C.maroonSoft, progress: "90%" },
-    { id: 10, title: "اللغة العربية", professor: "أ. سعاد", lessonsCount: "25 درس", icon: "library", color: C.gold, progress: "50%" },
-    { id: 11, title: "اللغة الإنجليزية", professor: "أ. نور", lessonsCount: "20 درس", icon: "language", color: C.text, progress: "40%" },
-    { id: 12, title: "الرياضيات", professor: "أ. حسن", lessonsCount: "32 درس", icon: "calculator", color: C.maroon, progress: "25%" },
-    { id: 13, title: "الفيزياء", professor: "أ. خالد", lessonsCount: "24 درس", icon: "flash", color: C.maroonSoft, progress: "30%" },
-    { id: 14, title: "الكيمياء", professor: "أ. عباس", lessonsCount: "20 درس", icon: "flask", color: C.gold, progress: "15%" },
-    { id: 15, title: "الأحياء", professor: "أ. هدى", lessonsCount: "26 درس", icon: "leaf", color: C.maroon, progress: "20%" },
-    { id: 16, title: "علم الأرض", professor: "أ. رائد", lessonsCount: "12 درس", icon: "earth", color: C.maroonGlow, progress: "0%" },
-    { id: 17, title: "الحاسوب", professor: "أ. ليث", lessonsCount: "15 درس", icon: "desktop-outline", color: C.textMuted, progress: "5%" },
-  ],
-  "السادس الإعدادي": [
-    { id: 18, title: "التربية الإسلامية", professor: "أ. أحمد", lessonsCount: "12 درس", icon: "book-outline", color: C.maroonSoft, progress: "70%" },
-    { id: 19, title: "اللغة العربية", professor: "أ. ياسر", lessonsCount: "30 درس", icon: "library", color: C.gold, progress: "80%" },
-    { id: 20, title: "اللغة الإنجليزية", professor: "أ. دينا", lessonsCount: "25 درس", icon: "language", color: C.text, progress: "65%" },
-    { id: 21, title: "الرياضيات", professor: "أ. حيدر", lessonsCount: "40 درس", icon: "calculator", color: C.maroon, progress: "90%" },
-    { id: 22, title: "الفيزياء", professor: "أ. عبدالكريم", lessonsCount: "35 درس", icon: "flash", color: C.maroonSoft, progress: "55%" },
-    { id: 23, title: "الكيمياء", professor: "أ. سعد", lessonsCount: "33 درس", icon: "flask", color: C.gold, progress: "45%" },
-    { id: 24, title: "الأحياء", professor: "أ. مريم", lessonsCount: "38 درس", icon: "leaf", color: C.maroon, progress: "85%" },
-  ]
-};
-
-function AnimatedSubjectCard({ item, index }: { item: any; index: number }) {
-  const router = useRouter();
-  const anim = useRef(new Animated.Value(0)).current;
+// ─── Animated Decorative Circles (from Home) ─────────────────────
+const HeaderDecorations = () => {
+  const float1 = useRef(new Animated.Value(0)).current;
+  const float2 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    anim.setValue(0);
-    Animated.spring(anim, {
-      toValue: 1,
-      delay: 50 + index * 60,
-      friction: 8,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  }, [item.id]);
-
-  const progressValue = parseInt(item.progress.replace("%", ""), 10);
-  const isCompleted = progressValue === 100;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(float1, { toValue: 1, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(float1, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(float2, { toValue: 1, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(float2, { toValue: 0, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   return (
-    <Animated.View
-      style={[
-        styles.cardOuter,
-        {
-          opacity: anim,
-          transform: [
-            {
-              scale: anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.9, 1],
-              }),
-            },
-            {
-              translateY: anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [20, 0],
-              }),
-            },
-          ],
-        },
-      ]}
-    >
-      <TouchableOpacity 
-        activeOpacity={0.8} 
-        style={[styles.card, isCompleted && styles.cardCompleted]}
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View style={[styles.decorCircle, {
+        width: 350, height: 350, borderRadius: 175, top: -50, right: -100,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        transform: [{ translateY: float1.interpolate({ inputRange: [0, 1], outputRange: [0, 12] }) }],
+      }]} />
+      <Animated.View style={[styles.decorCircle, {
+        width: 250, height: 250, borderRadius: 125, top: 150, left: -80,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        transform: [{ translateY: float2.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }],
+      }]} />
+    </View>
+  );
+};
+
+// ─── Overall Progress Hero Card ──────────────────────────────────
+const OverallProgressCard = ({ subjects }: { subjects: any[] }) => {
+  const fillAnim = useRef(new Animated.Value(0)).current;
+  const totalLessons = subjects.reduce((sum, s) => sum + (s.lessonsCount || (s as any).lessons || 0), 0);
+  const avgProgress = subjects.length ? Math.round(subjects.reduce((sum, s) => sum + s.progress, 0) / subjects.length) : 0;
+
+  useEffect(() => {
+    Animated.timing(fillAnim, {
+      toValue: 1, duration: 1200, delay: 300,
+      easing: Easing.out(Easing.cubic), useNativeDriver: false,
+    }).start();
+  }, []);
+
+  return (
+    <View style={styles.heroCard}>
+      {/* Decorative circles inside hero */}
+      <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 28 }]} pointerEvents="none">
+        <View style={[styles.decorCircle, { width: 180, height: 180, borderRadius: 90, top: -40, left: -40, backgroundColor: C.heroDecor, opacity: 0.8 }]} />
+        <View style={[styles.decorCircle, { width: 240, height: 240, borderRadius: 120, bottom: -80, right: -60, backgroundColor: C.heroDecor, opacity: 0.6 }]} />
+      </View>
+
+      <View style={styles.heroContent}>
+        <View style={styles.heroStatsRow}>
+          <View style={styles.heroStatItem}>
+            <Text style={styles.heroStatValue}>{subjects.length}</Text>
+            <Text style={styles.heroStatLabel}>مادة</Text>
+          </View>
+          <View style={styles.heroStatDivider} />
+          <View style={styles.heroStatItem}>
+            <Text style={styles.heroStatValue}>{totalLessons}</Text>
+            <Text style={styles.heroStatLabel}>درس</Text>
+          </View>
+          <View style={styles.heroStatDivider} />
+          <View style={styles.heroStatItem}>
+            <Text style={[styles.heroStatValue, { color: C.gold }]}>{avgProgress}%</Text>
+            <Text style={styles.heroStatLabel}>المعدل العام</Text>
+          </View>
+        </View>
+
+        <View style={styles.heroProgressSection}>
+          <View style={styles.progressTrackHero}>
+            <Animated.View style={[styles.progressFillHero, {
+              width: fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${avgProgress}%`] }),
+            }]} />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// ─── Animated Subject Card ──────────────────────────────────────
+const AnimatedSubjectCard = ({ item, index }: { item: typeof FALLBACK_SUBJECTS[0]; index: number }) => {
+  const router = useRouter();
+  const enterAnim = useRef(new Animated.Value(0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(enterAnim, {
+      toValue: 1, duration: 450, delay: 400 + index * 80,
+      easing: Easing.out(Easing.back(1.1)), useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const handlePressIn = useCallback(() => {
+    Animated.spring(pressScale, { toValue: 0.94, friction: 8, tension: 150, useNativeDriver: true }).start();
+  }, []);
+  const handlePressOut = useCallback(() => {
+    Animated.spring(pressScale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }).start();
+  }, []);
+
+  const isHigh = item.progress >= 80;
+
+  return (
+    <Animated.View style={{
+      width: '48%', marginBottom: 16,
+      opacity: enterAnim,
+      transform: [
+        { translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+        { scale: pressScale },
+      ],
+    }}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.card}
         onPress={() => router.push(`/subject/${item.id}` as any)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
       >
-        {/* Card Header: Icon & Badge */}
-        <View style={styles.cardHeader}>
-          <View style={[styles.cardIconBox, { backgroundColor: item.color + "1A" }]}>
-            <Ionicons name={item.icon as any} size={28} color={item.color} />
-          </View>
-          <View style={[styles.metaBadge, { backgroundColor: item.color + "0D" }]}>
-            <Ionicons name="book" size={12} color={item.color} />
-            <Text style={[styles.metaText, { color: item.color }]}>
-              {item.lessonsCount.split(" ")[0]}
-            </Text>
-          </View>
-        </View>
-
-        {/* Content: Title & Professor */}
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <Text style={styles.cardProfessor}>{item.professor}</Text>
-        </View>
-
-        {/* Footer: Progress */}
-        <View style={styles.progressWrap}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressText}>التقدم</Text>
-            <Text style={[styles.progressLabel, { color: item.color }]}>
-              {item.progress}
-            </Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: item.progress as any, backgroundColor: item.color },
-              ]}
+        {/* Icon / Thumbnail */}
+        <View style={[styles.cardIconCircle, { backgroundColor: item.color + '15', overflow: 'hidden', borderWidth: 2, borderColor: item.color }]}>
+          {item.teacherImage ? (
+            <Image 
+              source={{ uri: item.teacherImage }} 
+              style={{ width: '100%', height: '100%' }} 
+              resizeMode="cover"
             />
+          ) : (
+            <Ionicons name={item.icon} size={28} color={item.color} />
+          )}
+        </View>
+
+        {/* Professor & Title */}
+        <Text style={styles.cardTeacher} numberOfLines={1}>{item.professor || (item as any).teacherName}</Text>
+        <Text style={styles.cardSubjectLine} numberOfLines={2}>{item.title}</Text>
+
+        {/* Meta row */}
+        <View style={styles.cardMetaRow}>
+          <View style={styles.cardMetaPill}>
+            <Ionicons name="videocam" size={11} color={C.stationDark} />
+            <Text style={styles.cardMetaPillText}>{item.lessonsCount || (item as any).lessons} درس</Text>
           </View>
+        </View>
+
+        {/* Progress */}
+        <View style={styles.cardProgressSection}>
+          <View style={styles.cardProgressTrack}>
+            <View style={[styles.cardProgressFill, {
+              width: `${item.progress}%`,
+              backgroundColor: isHigh ? '#10B981' : C.gold,
+            }]} />
+          </View>
+          <Text style={[styles.cardProgressText, isHigh && { color: '#10B981' }]}>
+            {item.progress}%
+          </Text>
         </View>
       </TouchableOpacity>
     </Animated.View>
   );
-}
+};
 
+// ═════════════════════════════════════════════════════════════════
+// MAIN SCREEN
+// ═════════════════════════════════════════════════════════════════
 export default function SubjectsScreen() {
   const router = useRouter();
-  const headerAnim = useRef(new Animated.Value(0)).current;
-
-  const [selectedGrade, setSelectedGrade] = useState(GRADES_OPTIONS[0]);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
 
   useEffect(() => {
-    Animated.spring(headerAnim, {
-      toValue: 1,
-      friction: 8,
-      tension: 50,
-      useNativeDriver: true,
-    }).start();
+    try {
+      const unsubscribeSubjects = onSnapshot(collection(db, "subjects"), (snapshot) => {
+        if (!snapshot.empty) {
+          const fetchedSubjects = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as any;
+          setSubjects(fetchedSubjects);
+        }
+      });
+      const unsubscribeTeachers = onSnapshot(collection(db, "teachers"), (snapshot) => {
+        if (!snapshot.empty) {
+          const fetchedTeachers = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setTeachers(fetchedTeachers);
+        }
+      });
+      return () => {
+        unsubscribeSubjects();
+        unsubscribeTeachers();
+      };
+    } catch (e) {
+      console.warn("Firebase not configured properly:", e);
+    }
   }, []);
 
-  const subjectsToList = CLASSES_DATA[selectedGrade] || [];
+  const mergedSubjects = [...subjects];
+
+  teachers.forEach(t => {
+    if (!t.subject) return;
+
+    const professorName = t.name || 'معلم غير محدد';
+    const teacherImg = t.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(professorName)}&background=12453D&color=fff`;
+
+    const existingIndex = mergedSubjects.findIndex(s => s.title === t.subject);
+    
+    if (existingIndex >= 0) {
+      mergedSubjects[existingIndex] = {
+        ...mergedSubjects[existingIndex],
+        professor: professorName,
+        teacherImage: teacherImg
+      };
+    } else {
+      mergedSubjects.push({
+        id: t.uid || t.id || Math.random(),
+        title: t.subject,
+        professor: professorName,
+        lessonsCount: 0,
+        icon: "book-outline" as any,
+        color: '#12453D',
+        progress: 0,
+        teacherImage: teacherImg
+      } as any);
+    }
+  });
+
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const heroAnim = useRef(new Animated.Value(0)).current;
+  const sectionAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(150, [
+      Animated.timing(headerAnim, { toValue: 1, duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(heroAnim, { toValue: 1, duration: 550, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(sectionAnim, { toValue: 1, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   return (
     <View style={styles.container}>
-      <View style={styles.bgLayer}>
-        <View style={styles.bgPrimary} />
+      <StatusBar barStyle="light-content" backgroundColor={C.bgTop} />
+
+      {/* Top Dark Background — matches Home Page */}
+      <View style={styles.topBgLayer}>
+        <HeaderDecorations />
       </View>
 
-      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <Animated.View
-            style={[
-              styles.header,
-              {
-                opacity: headerAnim,
-                transform: [
-                  {
-                    translateY: headerAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [-20, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.backBtn}
-              activeOpacity={0.8}
-              onPress={() => router.back()}
-            >
-              <Ionicons
-                name={I18nManager.isRTL ? "chevron-forward" : "chevron-back"}
-                size={26}
-                color="#FFFFFF"
-              />
-            </TouchableOpacity>
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-            <Text style={styles.headerTitle}>المواد الدراسية</Text>
+          {/* ─── Header ──────────────────────── */}
+          <Animated.View style={[styles.header, {
+            opacity: headerAnim,
+            transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) }],
+          }]}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity style={styles.backBtn} activeOpacity={0.8} onPress={() => router.back()}>
+                <Ionicons name={I18nManager.isRTL ? "chevron-forward" : "chevron-back"} size={22} color={C.textLight} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>موادي</Text>
+              <Text style={styles.headerSub}>المقررات الدراسية</Text>
+            </View>
             <View style={styles.placeholder} />
           </Animated.View>
 
-          {/* Custom Dropdown / Grade Selector */}
-          <View style={styles.dropdownContainer}>
-            <TouchableOpacity 
-              activeOpacity={0.8}
-              style={styles.dropdownHeader}
-              onPress={() => setDropdownOpen(!dropdownOpen)}
-            >
-              <View style={styles.dropdownHeaderLeft}>
-                  <Ionicons name="school" size={20} color={C.maroon} />
-                  <Text style={styles.dropdownSelectedText}>{selectedGrade}</Text>
-              </View>
-              <Ionicons name={dropdownOpen ? "chevron-up" : "chevron-down"} size={20} color={C.textMuted} />
-            </TouchableOpacity>
+          {/* ─── Hero Card ──────────────────────── */}
+          <Animated.View style={{
+            opacity: heroAnim,
+            transform: [{ translateY: heroAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+          }}>
+            <OverallProgressCard subjects={mergedSubjects} />
+          </Animated.View>
 
-            {dropdownOpen && (
-              <View style={styles.dropdownList}>
-                {GRADES_OPTIONS.map((grade) => (
-                  <TouchableOpacity
-                    key={grade}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setSelectedGrade(grade);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={[
-                      styles.dropdownItemText,
-                      selectedGrade === grade && { color: C.maroonDeep, fontWeight: "800" }
-                    ]}>
-                      {grade}
-                    </Text>
-                    {selectedGrade === grade && (
-                      <Ionicons name="checkmark-circle" size={20} color={C.maroonDeep} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
+          {/* ─── Section Header ─────────────────── */}
+          <Animated.View style={[styles.sectionHeader, {
+            opacity: sectionAnim,
+            transform: [{ translateY: sectionAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+          }]}>
+            <Text style={styles.sectionTitle}>المواد الدراسية</Text>
+            <Text style={styles.sectionCount}>{mergedSubjects.length} مادة</Text>     
+          </Animated.View>
 
-          {/* Subjects Grid */}
-          <View style={styles.gridContainer}>
-            {subjectsToList.map((item, idx) => (
-              <AnimatedSubjectCard key={item.id} item={item} index={idx} />
+          {/* ─── Subjects Grid ──────────────────── */}
+          <View style={styles.grid}>
+            {mergedSubjects.map((item, i) => (
+              <AnimatedSubjectCard key={item.id || i} item={item} index={i} />
             ))}
           </View>
-
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
+// ═════════════════════════════════════════════════════════════════
+// STYLES — Aligned with Home Page design system
+// ═════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
+  container: { flex: 1, backgroundColor: C.bgMain },
+
+  // Same top background layer as Home Page
+  topBgLayer: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 320,
+    backgroundColor: C.bgTop,
+    borderBottomLeftRadius: 50, borderBottomRightRadius: 50,
+    overflow: 'hidden',
   },
-  bgLayer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 180,
-  },
-  bgPrimary: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: C.maroon,
-    borderBottomLeftRadius: 45,
-    borderBottomRightRadius: 45,
-  },
-  scrollContent: {
-    paddingTop: 12,
-    paddingBottom: 50,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    direction: "rtl",
-  },
+  decorCircle: { position: 'absolute' },
+
+  scrollContent: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 50 },
+
+  // Header — mirrors Home Page
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, direction: 'ltr', paddingHorizontal: 4 },
+  headerLeft: { justifyContent: 'center' },
   backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    letterSpacing: 0.5,
-  },
-  placeholder: {
-    width: 44,
-  },
-  dropdownContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-    direction: "rtl",
-    zIndex: 10,
-  },
-  dropdownHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: C.surface,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    borderRadius: 20,
+  headerCenter: { alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 28, fontWeight: '900', color: C.textLight, marginBottom: 2 },
+  headerSub: { fontSize: 12, color: '#97AEA9', fontWeight: '600' },
+  placeholder: { width: 44 },
+
+  // Hero Card — matches Home Page hero
+  heroCard: {
+    backgroundColor: C.heroCard, borderRadius: 28, overflow: 'hidden', marginBottom: 24,
     ...Platform.select({
-      ios: {
-        shadowColor: "rgba(12,59,53,0.08)",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 1,
-        shadowRadius: 15,
-      },
-      android: { elevation: 6 },
-      default: {
-        shadowColor: "rgba(12,59,53,0.08)",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 1,
-        shadowRadius: 15,
-      },
-    }),
-  },
-  dropdownHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  dropdownSelectedText: {
-    color: C.text,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  dropdownList: {
-    marginTop: 8,
-    backgroundColor: C.surface,
-    borderRadius: 20,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(12,59,53,0.05)",
-    ...Platform.select({
-      ios: {
-        shadowColor: "rgba(12,59,53,0.15)",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 1,
-        shadowRadius: 20,
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 24 },
       android: { elevation: 8 },
-      default: {
-        shadowColor: "rgba(12,59,53,0.15)",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 1,
-        shadowRadius: 20,
-      },
     }),
   },
-  dropdownItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+  heroContent: { padding: 24 },
+  heroStatsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 20, direction: 'rtl' },
+  heroStatItem: { alignItems: 'center' },
+  heroStatValue: { fontSize: 28, fontWeight: '900', color: C.textLight, marginBottom: 2 },
+  heroStatLabel: { fontSize: 12, fontWeight: '600', color: C.textGrayLight },
+  heroStatDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.12)' },
+  heroProgressSection: { flexDirection: 'row', alignItems: 'center', gap: 12, direction: 'rtl' },
+  progressTrackHero: { flex: 1, height: 10, backgroundColor: C.goldTrack, borderRadius: 5, overflow: 'hidden' },
+  progressFillHero: { height: 10, backgroundColor: C.gold, borderRadius: 5 },
+
+  // Section Header — matches Home Page
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 18, paddingHorizontal: 6, direction: 'rtl',
+    backgroundColor: C.bgMain, borderRadius: 12, paddingVertical: 4
   },
-  dropdownItemText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: C.textMuted,
-  },
-  gridContainer: {
-    paddingHorizontal: 20,
-    flexDirection: I18nManager.isRTL ? "row-reverse" : "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  cardOuter: {
-    width: "48%", // Two columns
-    marginBottom: 16,
-  },
+  sectionTitle: { fontSize: 22, fontWeight: '900', color: C.textDark },
+  sectionCount: { fontSize: 13, fontWeight: '700', color: '#5A7A74' },
+
+  // Subjects Grid — 2-column like Home Page stations
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', direction: 'rtl', paddingHorizontal: 2 },
+
+  // Subject Card — mirrors station card style
   card: {
-    backgroundColor: C.surface,
-    borderRadius: 24,
-    padding: 16,
-    height: 190, // Fixed height for uniform grid
-    direction: "rtl",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "rgba(12,59,53,0.03)",
+    width: '100%', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 18,
+    alignItems: 'center', backgroundColor: C.white,
     ...Platform.select({
-      ios: {
-        shadowColor: "rgba(12,59,53,0.08)",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 1,
-        shadowRadius: 15,
-      },
-      android: { elevation: 6 },
-      default: {
-        shadowColor: "rgba(12,59,53,0.08)",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 1,
-        shadowRadius: 15,
-      },
+      ios: { shadowColor: 'rgba(0,0,0,0.06)', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 1, shadowRadius: 22 },
+      android: { elevation: 4 },
     }),
   },
-  cardCompleted: {
-    borderColor: C.gold + "40",
-    borderWidth: 1.5,
+  cardIconCircle: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  cardTeacher: { fontSize: 15, fontWeight: '900', color: C.textDark, textAlign: 'center', marginBottom: 3, lineHeight: 22 },
+  cardSubjectLine: { fontSize: 12, fontWeight: '600', color: C.textGrayDark, marginBottom: 8, textAlign: 'center' },
+  cardMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  cardMetaPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#EEF3F2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  cardIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  metaBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  metaText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  cardContent: {
-    marginTop: 12,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: C.text,
-    marginBottom: 4,
-    lineHeight: 24,
-  },
-  cardProfessor: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: C.textMuted,
-  },
-  progressWrap: {
-    marginTop: 8,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  progressText: {
-    fontSize: 12,
-    color: C.textMuted,
-    fontWeight: "600",
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  progressTrack: {
-    height: 6,
-    backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 3,
-  },
+  cardMetaPillText: { fontSize: 10, fontWeight: '700', color: '#174A42' },
+
+  // Card progress
+  cardProgressSection: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
+  cardProgressTrack: { flex: 1, height: 5, backgroundColor: '#EAEFEE', borderRadius: 3, overflow: 'hidden' },
+  cardProgressFill: { height: 5, borderRadius: 3 },
+  cardProgressText: { fontSize: 12, fontWeight: '900', color: C.textDark, width: 32, textAlign: 'left' },
 });

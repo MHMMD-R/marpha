@@ -1,0 +1,7 @@
+  backup-2026-04-05-2131
+* gg
+  master
+  remotes/origin/HEAD -> origin/gg
+  remotes/origin/backup-2026-04-05-2131
+  remotes/origin/gg
+  remotes/origin/master

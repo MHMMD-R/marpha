@@ -182,7 +182,7 @@ export default function NotificationsScreen() {
         <View style={styles.bgPrimary} />
       </View>
 
-      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}

@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Shared Data
+    match /subjects/{subjectId} {
+      // Anyone can read subjects
+      allow read: if true;
+      // Only authenticated users can write (You can later restrict this to admins only)
+      allow write: if request.auth != null;
+    }
+
+    // Student Data
+    match /students/{studentId} {
+      // Anyone can read for now (Used by dashboard)
+      // Later restrict reading to user themselves or admins:
+      // allow read: if request.auth != null && (request.auth.uid == studentId || request.auth.token.admin == true);
+      allow read: if true;
+
+      // Users can only create/update their own student record
+      allow create: if true; // Allow dashboard testing
+      allow update: if request.auth != null && request.auth.uid == studentId;
+      
+      // Prevent deleting student records (admins only ideally)
+      allow delete: if false; 
+    }
+
+    // Teacher Data
+    match /teachers/{teacherId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Quizzes Data
+    match /quizzes/{quizId} {
+      allow read: if true;
+      allow write: if true; // In production restrict to creators/admins
+    }
+
+    // Lectures Data
+    match /lectures/{lectureId} {
+      allow read: if true;
+      allow write: if true; // In production restrict to creators/admins
+    }  }
+}

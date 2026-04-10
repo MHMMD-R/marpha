@@ -1,263 +1,458 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
-  Dimensions,
+  Easing,
   I18nManager,
-  Image,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_GAP = 14;
-const CARD_W = (SCREEN_W - 16 * 2 - CARD_GAP) / 2;
-
-// Original Dark Emerald Palette (from logo)
+// Precise Colors extracted from the design
 const C = {
-  bgDeep: '#061a15',
-  bgMid: '#0a2e25',
-  bgLight: '#0f4236',
-  white: '#FFFFFF',
-  glass: 'rgba(255, 255, 255, 0.08)',
-  glassBorder: 'rgba(255, 255, 255, 0.15)',
-  gold: '#D4A043',
-  textGray: '#808A87',
+  bgTop: '#0B2923',
+  bgMain: '#F4F7F6',
+  heroCard: '#0A1C18',
+  heroDecor: '#152C26',
+  stationDark: '#12453D',
+  stationIconBg: '#2E5E55',
+  stationWhite: '#FFFFFF',
+  gold: '#E3A736',
+  goldTrack: '#233935',
+  textLight: '#FFFFFF',
+  textGrayLight: '#9FB5AF',
+  textDark: '#111A18',
+  textGrayDark: '#8A9592',
+  redBadge: '#FF3B30',
 };
 
-const LECTURERS = [
-  {
-    id: 1,
-    name: 'أ. أحمد الخالدي',
-    subject: 'الكيمياء',
-    imageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=600&auto=format&fit=crop',
-    accent: '#3B82F6',
-  },
-  {
-    id: 2,
-    name: 'أ. سارة حسين',
-    subject: 'الفيزياء',
-    imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=600&auto=format&fit=crop',
-    accent: '#8B5CF6',
-  },
-  {
-    id: 3,
-    name: 'أ. محمود علي',
-    subject: 'الرياضيات',
-    imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?q=80&w=600&auto=format&fit=crop',
-    accent: '#F59E0B',
-  },
-  {
-    id: 4,
-    name: 'أ. نور الخفاجي',
-    subject: 'الأحياء',
-    imageUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=600&auto=format&fit=crop',
-    accent: '#10B981',
-  },
-  {
-    id: 5,
-    name: 'أ. مصطفى عبد',
-    subject: 'اللغة الانكليزية',
-    imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop',
-    accent: '#F43F5E',
-  },
-  {
-    id: 6,
-    name: 'أ. مريم حسن',
-    subject: 'التربية الاسلامية',
-    imageUrl: 'https://images.unsplash.com/photo-1598550874175-4d0ef436c909?q=80&w=600&auto=format&fit=crop',
-    accent: '#14B8A6',
-  },
+// Data Models — ordered RTL: rightmost first
+const STATS = [
+  { id: 1, label: 'يوم متتالي', value: '12', icon: 'flame-outline' as const, color: '#56756F', bg: '#F2F6F5' },
+  { id: 2, label: 'مهام مكتملة', value: '7', icon: 'checkmark-done' as const, color: '#56756F', bg: '#F2F6F5' },
+  { id: 3, label: 'ساعات اليوم', value: '3.5', icon: 'time-outline' as const, color: '#56756F', bg: '#F2F6F5' },
 ];
 
-// Sparkle dots for ambient background
-const SPARKLES = [
-  { top: '8%', left: '10%', size: 3, opacity: 0.5 },
-  { top: '15%', right: '15%', size: 2, opacity: 0.35 },
-  { top: '30%', left: '85%', size: 4, opacity: 0.4 },
-  { top: '45%', left: '5%', size: 2, opacity: 0.3 },
-  { top: '60%', right: '8%', size: 3, opacity: 0.45 },
-  { top: '75%', left: '20%', size: 2, opacity: 0.35 },
-  { top: '90%', right: '30%', size: 3, opacity: 0.3 },
+const STATIONS = [
+  { id: 'lectures', title: 'محاضراتي', subtitle: 'الفيديوهات والتسجيلات', icon: 'videocam', isDark: true, route: '/(tabs)/lectures' },
+  { id: 'subjects', title: 'موادي', subtitle: 'المقررات الدراسية', icon: 'stats-chart', isDark: true, route: '/(tabs)/subjects' },
+  { id: 'quizzes', title: 'كوزاتي', subtitle: 'الاختبارات القصيرة', icon: 'document-text', isDark: false, route: '/(tabs)/quizzes', badge: 'جديد', lightColor: '#174A42', lightBg: '#EEF3F2' },
+  { id: 'notifications', title: 'إشعاراتي', subtitle: 'التنبيهات والرسائل', icon: 'notifications', isDark: false, route: '/(tabs)/notifications', badgeCount: 3, lightColor: '#CD713C', lightBg: '#FDEDE2' },
 ];
 
-function LecturerCard({ item, index }: { item: typeof LECTURERS[0]; index: number }) {
-  const router = useRouter();
-  const anim = useRef(new Animated.Value(0)).current;
+// ─── Animated Decorative Circles ─────────────────────────────────
+const HeaderDecorations = () => {
+  const float1 = useRef(new Animated.Value(0)).current;
+  const float2 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.spring(anim, {
-      toValue: 1,
-      delay: index * 90 + 80,
-      friction: 7,
-      tension: 50,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(float1, { toValue: 1, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(float1, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(float2, { toValue: 1, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(float2, { toValue: 0, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, [float1, float2]);
 
   return (
-    <Animated.View style={[styles.cardOuter, {
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View style={[styles.decorCircle, {
+        width: 350, height: 350, borderRadius: 175, top: -50, right: -100,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        transform: [{ translateY: float1.interpolate({ inputRange: [0, 1], outputRange: [0, 12] }) }],
+      }]} />
+      <Animated.View style={[styles.decorCircle, {
+        width: 250, height: 250, borderRadius: 125, top: 150, left: -80,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        transform: [{ translateY: float2.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }],
+      }]} />
+    </View>
+  );
+};
+
+const HeroDecorations = () => {
+  const scale1 = useRef(new Animated.Value(1)).current;
+  const scale2 = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale1, { toValue: 1.08, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(scale1, { toValue: 1, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale2, { toValue: 1.06, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(scale2, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, [scale1, scale2]);
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 28 }]} pointerEvents="none">
+      <Animated.View style={[styles.decorCircle, {
+        width: 180, height: 180, borderRadius: 90, top: -40, left: -40,
+        backgroundColor: C.heroDecor, opacity: 0.8,
+        transform: [{ scale: scale1 }],
+      }]} />
+      <Animated.View style={[styles.decorCircle, {
+        width: 240, height: 240, borderRadius: 120, bottom: -80, right: -60,
+        backgroundColor: C.heroDecor, opacity: 0.6,
+        transform: [{ scale: scale2 }],
+      }]} />
+    </View>
+  );
+};
+
+// ─── Pulsing Badge Dot ───────────────────────────────────────────
+const PulsingDot = () => {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.6, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulse]);
+  return (
+    <View style={{ position: 'relative', width: 6, height: 6 }}>
+      <Animated.View style={{
+        position: 'absolute', width: 6, height: 6, borderRadius: 3,
+        backgroundColor: '#2FD67C', opacity: 0.35,
+        transform: [{ scale: pulse }],
+      }} />
+      <View style={styles.heroBadgeDot} />
+    </View>
+  );
+};
+
+// ─── Animated Stat Card ──────────────────────────────────────────
+const AnimatedStatCard = ({ stat, index }: { stat: typeof STATS[0]; index: number }) => {
+  const anim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+
+  useEffect(() => {
+    const delay = 400 + index * 120;
+    Animated.parallel([
+      Animated.timing(anim, { toValue: 1, duration: 500, delay, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, delay, friction: 5, tension: 80, useNativeDriver: true }),
+    ]).start();
+  }, [anim, index, scaleAnim]);
+
+  return (
+    <Animated.View style={[styles.statCard, {
       opacity: anim,
       transform: [
-        { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) },
-        { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+        { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) },
+        { scale: scaleAnim },
       ],
     }]}>
+      <View style={[styles.statIconWrap, { backgroundColor: stat.bg }]}>
+        <Ionicons name={stat.icon} size={22} color={stat.color} />
+      </View>
+      <Text style={styles.statValue}>{stat.value}</Text>
+      <Text style={styles.statLabel}>{stat.label}</Text>
+    </Animated.View>
+  );
+};
+
+// ─── Animated Station Card ──────────────────────────────────────
+const AnimatedStationCard = ({ station, index, onPress }: { station: typeof STATIONS[0]; index: number; onPress: () => void }) => {
+  const enterAnim = useRef(new Animated.Value(0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(enterAnim, {
+      toValue: 1, duration: 450, delay: 600 + index * 100,
+      easing: Easing.out(Easing.back(1.1)), useNativeDriver: true,
+    }).start();
+  }, [enterAnim, index]);
+
+  const handlePressIn = useCallback(() => {
+    Animated.spring(pressScale, { toValue: 0.94, friction: 8, tension: 150, useNativeDriver: true }).start();
+  }, [pressScale]);
+  const handlePressOut = useCallback(() => {
+    Animated.spring(pressScale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }).start();
+  }, [pressScale]);
+
+  return (
+    <Animated.View style={{
+      width: '48%', marginBottom: 16,
+      opacity: enterAnim,
+      transform: [
+        { translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+        { scale: pressScale },
+      ],
+    }}>
       <TouchableOpacity
-        activeOpacity={0.85}
-        style={styles.card}
-        onPress={() => router.push(`/subject/${item.id}` as any)}
+        activeOpacity={1}
+        style={[styles.stationCard, station.isDark ? styles.stationCardDark : styles.stationCardWhite]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
       >
-        {/* Photo fills the card */}
-        <Image
-          source={{ uri: item.imageUrl }}
-          style={styles.cardImage}
-          resizeMode="cover"
-        />
-
-        {/* Dark gradient overlay at bottom for text readability */}
-        <View style={styles.cardOverlay} />
-
-        {/* Colored accent bar at top */}
-        <View style={[styles.accentBar, { backgroundColor: item.accent }]} />
-
-        {/* Text info at bottom */}
-        <View style={styles.cardTextWrap}>
-          <View style={[styles.subjectBadge, { backgroundColor: item.accent }]}>
-            <Text style={styles.subjectText}>{item.subject}</Text>
+        {station.badge && (
+          <View style={styles.redBadge}>
+            <Text style={styles.redBadgeText}>{station.badge}</Text>
           </View>
-          <Text style={styles.nameText} numberOfLines={1}>{item.name}</Text>
+        )}
+        {station.badgeCount && (
+          <View style={styles.redCircleBadge}>
+            <Text style={styles.redBadgeText}>{station.badgeCount}</Text>
+          </View>
+        )}
+
+        <View style={[
+          styles.stationIconCircle,
+          station.isDark ? styles.stationIconCircleDark : { backgroundColor: station.lightBg }
+        ]}>
+          <Ionicons name={station.icon as any} size={28} color={station.isDark ? C.textLight : station.lightColor} />
         </View>
+        <Text style={[styles.stationTitle, { color: station.isDark ? C.textLight : C.textDark }]}>
+          {station.title}
+        </Text>
+        <Text style={[styles.stationSub, { color: station.isDark ? '#A1BCB7' : C.textGrayDark }]}>
+          {station.subtitle}
+        </Text>
       </TouchableOpacity>
     </Animated.View>
   );
-}
+};
 
-// Background Decorations
-const BackgroundDecor = () => (
-  <View style={StyleSheet.absoluteFill}>
-    <View style={styles.bgCircle1} />
-    <View style={styles.bgCircle2} />
-    {SPARKLES.map((s, i) => (
-      <View key={i} style={[styles.sparkle, {
-        top: s.top as any,
-        left: (s as any).left,
-        right: (s as any).right,
-        width: s.size,
-        height: s.size,
-        opacity: s.opacity,
+// ─── Progress Bar With Animated Fill ─────────────────────────────
+const AnimatedProgressBar = () => {
+  const fillAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fillAnim, {
+      toValue: 1, duration: 1200, delay: 300,
+      easing: Easing.out(Easing.cubic), useNativeDriver: false,
+    }).start();
+  }, [fillAnim]);
+  return (
+    <View style={styles.progressTrack}>
+      <Animated.View style={[styles.progressFill, {
+        width: fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '65%'] }),
       }]} />
-    ))}
-  </View>
-);
+    </View>
+  );
+};
 
+// ═════════════════════════════════════════════════════════════════
+// MAIN SCREEN
+// ═════════════════════════════════════════════════════════════════
 export default function HomeScreen() {
+  const router = useRouter();
+
+  // Staggered entrance anims
   const headerAnim = useRef(new Animated.Value(0)).current;
+  const heroAnim = useRef(new Animated.Value(0)).current;
+  const sectionAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!I18nManager.isRTL) {
-      try {
-        I18nManager.allowRTL(true);
-        I18nManager.forceRTL(true);
-      } catch (error) { }
+      try { I18nManager.allowRTL(true); I18nManager.forceRTL(true); } catch { /* ignore */ }
     }
-    Animated.spring(headerAnim, { toValue: 1, friction: 8, tension: 50, useNativeDriver: true }).start();
-  }, []);
+
+    Animated.stagger(150, [
+      Animated.timing(headerAnim, { toValue: 1, duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(heroAnim, { toValue: 1, duration: 550, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(sectionAnim, { toValue: 1, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+  }, [headerAnim, heroAnim, sectionAnim]);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bgDeep} />
-      <BackgroundDecor />
+      <StatusBar barStyle="light-content" backgroundColor={C.bgTop} />
 
-      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-        {/* Header */}
-        <Animated.View style={[styles.header, {
-          opacity: headerAnim,
-          transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }],
-        }]}>
-          <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
-            <Ionicons name="apps" size={22} color={C.white} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>مــعــرفــة</Text>
-            <View style={styles.headerUnderline} />
-          </View>
-          <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
-            <Ionicons name="search" size={22} color={C.white} />
-          </TouchableOpacity>
-        </Animated.View>
+      {/* Top Dark Background Layer */}
+      <View style={styles.topBgLayer}>
+        <HeaderDecorations />
+      </View>
 
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionHeading}>نخبة التدريس</Text>
-          <View style={styles.gridContainer}>
-            {LECTURERS.map((item, idx) => (
-              <LecturerCard key={item.id} item={item} index={idx} />
+
+          {/* ─── Header Row ──────────────────────── */}
+          <Animated.View style={[styles.headerRow, {
+            opacity: headerAnim,
+            transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) }],
+          }]}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity activeOpacity={0.8} style={styles.iconBtn}>
+                <Ionicons name="notifications-outline" size={22} color={C.textLight} />
+                <View style={styles.notificationDot} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.8} style={styles.avatarBtn}>
+                <Ionicons name="person" size={24} color={C.bgTop} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.headerRight}>
+              <Text style={styles.greetingTitle}>مرحباً بك</Text>
+              <Text style={styles.greetingSub}>ماذا تريد أن تتعلم اليوم؟</Text>
+            </View>
+          </Animated.View>
+
+          {/* ─── Hero Card ────────────────────────── */}
+          <Animated.View style={{
+            opacity: heroAnim,
+            transform: [{ translateY: heroAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+          }}>
+            <TouchableOpacity activeOpacity={0.9} style={styles.heroCard}>
+              <HeroDecorations />
+              <View style={styles.heroContent}>
+                <View style={styles.heroBadgeRow}>
+                  <View style={styles.heroBadge}>
+                    <Text style={styles.heroBadgeText}>مُستمر</Text>
+                    <PulsingDot />
+                  </View>
+                </View>
+                <Text style={styles.heroTitle}>رحلة المعرفة</Text>
+                <Text style={styles.heroSub}>أكمل من حيث توقفت في دروسك الأخيرة</Text>
+                <View style={styles.progressSection}>
+                  <AnimatedProgressBar />
+                  <Text style={styles.progressPercent}>%65 مكتمل</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* ─── Quick Stats ──────────────────────── */}
+          <View style={styles.statsContainer}>
+            {STATS.map((stat, i) => (
+              <AnimatedStatCard key={stat.id} stat={stat} index={i} />
             ))}
           </View>
+
+          {/* ─── Section Header ───────────────────── */}
+          <Animated.View style={[styles.sectionHeader, {
+            opacity: sectionAnim,
+            transform: [{ translateY: sectionAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+          }]}>
+            <Text style={styles.sectionTitle}>محطات الطالب</Text>
+            <TouchableOpacity activeOpacity={0.7}>
+              <Text style={styles.seeAllText}>عرض الكل</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* ─── Stations Grid ─────────────────────── */}
+          <View style={styles.stationsGrid}>
+            {STATIONS.map((station, i) => (
+              <AnimatedStationCard
+                key={station.id}
+                station={station}
+                index={i}
+                onPress={() => router.push(station.route as any)}
+              />
+            ))}
+          </View>
+
+          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
+// ═════════════════════════════════════════════════════════════════
+// STYLES
+// ═════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bgDeep },
+  container: { flex: 1, backgroundColor: C.bgMain },
 
-  // Background
-  bgCircle1: { position: 'absolute', top: '-8%', right: '-18%', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(15, 66, 54, 0.5)' },
-  bgCircle2: { position: 'absolute', bottom: '8%', left: '-12%', width: 250, height: 250, borderRadius: 125, backgroundColor: 'rgba(10, 46, 37, 0.6)' },
-  sparkle: { position: 'absolute', backgroundColor: C.white, borderRadius: 10 },
+  topBgLayer: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 320,
+    backgroundColor: C.bgTop,
+    borderBottomLeftRadius: 50, borderBottomRightRadius: 50,
+    overflow: 'hidden',
+  },
+  decorCircle: { position: 'absolute' },
+
+  scrollContent: { paddingTop: 10, paddingHorizontal: 16 },
 
   // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, direction: 'rtl' },
-  headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.glass, borderWidth: 1, borderColor: C.glassBorder, justifyContent: 'center', alignItems: 'center' },
-  headerTitleWrap: { alignItems: 'center' },
-  headerTitle: { fontSize: 26, color: C.white, fontWeight: '900', letterSpacing: 1.5, textShadowColor: 'rgba(212, 160, 67, 0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
-  headerUnderline: { width: 30, height: 3, backgroundColor: C.gold, borderRadius: 2, marginTop: 6 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30, direction: 'ltr', paddingHorizontal: 4 },
+  headerRight: { alignItems: 'flex-end', justifyContent: 'center' },
+  greetingTitle: { fontSize: 34, fontWeight: '900', color: C.textLight, marginBottom: 2, letterSpacing: -0.5 },
+  greetingSub: { fontSize: 13, color: '#97AEA9', fontWeight: '600' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  notificationDot: { position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4, backgroundColor: C.gold },
+  avatarBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.textLight, justifyContent: 'center', alignItems: 'center' },
 
-  scrollContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 60 },
-  sectionHeading: { fontSize: 22, color: C.white, fontWeight: '800', marginBottom: 18, textAlign: 'right' },
-
-  // Grid
-  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', direction: 'rtl' },
-
-  // Lecturer Card
-  cardOuter: { width: CARD_W, height: CARD_W * 1.3, marginBottom: CARD_GAP },
-  card: {
-    flex: 1,
-    borderRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+  // Hero Card
+  heroCard: {
+    backgroundColor: C.heroCard, borderRadius: 32, overflow: 'hidden', marginBottom: 20,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 16 },
-      android: { elevation: 12 },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 16 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 24 },
+      android: { elevation: 8 },
     }),
   },
-  cardImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  cardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.15)',
-    // Gradient-like effect: darker at bottom
-    borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+  heroContent: { padding: 26 },
+  heroBadgeRow: { flexDirection: 'row', marginBottom: 20, direction: 'rtl' },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#1A3F37', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
+  heroBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2FD67C' },
+  heroBadgeText: { fontSize: 12, fontWeight: '800', color: C.textLight },
+  heroTitle: { fontSize: 30, fontWeight: '900', color: C.textLight, marginBottom: 6, textAlign: 'right' },
+  heroSub: { fontSize: 13, color: C.textGrayLight, fontWeight: '600', marginBottom: 28, textAlign: 'right', lineHeight: 20 },
+
+  progressSection: { flexDirection: 'row', alignItems: 'center', gap: 12, direction: 'rtl' },
+  progressPercent: { fontSize: 14, fontWeight: '800', color: C.gold, width: 80 },
+  progressTrack: { flex: 1, height: 10, backgroundColor: C.goldTrack, borderRadius: 5, overflow: 'hidden' },
+  progressFill: { height: 10, backgroundColor: C.gold, borderRadius: 5 },
+
+  // Quick Stats
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, direction: 'rtl', paddingHorizontal: 2 },
+  statCard: {
+    flex: 1, backgroundColor: C.textLight, borderRadius: 14, paddingVertical: 10, alignItems: 'center', marginHorizontal: 5,
+    ...Platform.select({
+      ios: { shadowColor: 'rgba(0,0,0,0.04)', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 1, shadowRadius: 18 },
+      android: { elevation: 3 },
+    }),
   },
-  accentBar: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
-  cardTextWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    alignItems: 'center',
+  statIconWrap: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+  statValue: { fontSize: 22, fontWeight: '900', color: C.textDark, marginBottom: 2 },
+  statLabel: { fontSize: 11, fontWeight: '600', color: '#9AA7A4' },
+
+  // Section Header — on light bg below the green curve
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, paddingHorizontal: 6, backgroundColor: C.bgMain, borderRadius: 12, paddingVertical: 4 },
+  sectionTitle: { fontSize: 22, fontWeight: '900', color: C.textDark },
+  seeAllText: { fontSize: 13, fontWeight: '700', color: '#5A7A74' },
+
+  // Stations Grid
+  stationsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', direction: 'rtl', paddingHorizontal: 2 },
+  stationCard: {
+    width: '100%', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 18,
+    alignItems: 'center', position: 'relative',
+    ...Platform.select({
+      ios: { shadowColor: 'rgba(0,0,0,0.06)', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 1, shadowRadius: 22 },
+      android: { elevation: 4 },
+    }),
   },
-  subjectBadge: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 14, marginBottom: 6 },
-  subjectText: { fontSize: 13, fontWeight: '900', color: C.white, textAlign: 'center' },
-  nameText: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.85)', textAlign: 'center' },
+  stationCardDark: { backgroundColor: C.stationDark },
+  stationCardWhite: { backgroundColor: C.stationWhite },
+
+  stationIconCircle: { width: 60, height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  stationIconCircleDark: { backgroundColor: C.stationIconBg },
+
+  stationTitle: { fontSize: 18, fontWeight: '900', marginBottom: 4, textAlign: 'center' },
+  stationSub: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+
+  redBadge: { position: 'absolute', top: 16, right: 16, backgroundColor: C.redBadge, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, zIndex: 10 },
+  redCircleBadge: { position: 'absolute', top: 16, right: 16, backgroundColor: C.redBadge, width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  redBadgeText: { color: C.textLight, fontSize: 10, fontWeight: '800' },
 });

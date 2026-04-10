@@ -1,19 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
     Dimensions,
     I18nManager,
     Platform,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
-    StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { db } from "../../firebase";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -32,41 +34,13 @@ const C = {
   surfaceWarm: '#F5FAF8',
 };
 
-const QUIZZES = [
-  {
-    id: 1,
-    title: "اختبار الخوارزميات النصفي",
-    course: "تحليل الخوارزميات",
-    duration: "45 دقيقة",
-    score: null,
-    status: "قادم",
-    date: "غداً 10:00 ص",
-  },
-  {
-    id: 2,
-    title: "كويز هياكل البيانات",
-    course: "هياكل البيانات",
-    duration: "15 دقيقة",
-    score: "9.5/10",
-    status: "مكتمل",
-    date: "أمس",
-  },
-  {
-    id: 3,
-    title: "اختبار المفاهيم الأساسية",
-    course: "الذكاء الاصطناعي",
-    duration: "30 دقيقة",
-    score: "8/10",
-    status: "مكتمل",
-    date: "٢ مايو",
-  },
-];
+// Removed mock data
 
 function AnimatedQuizCard({
   item,
   index,
 }: {
-  item: (typeof QUIZZES)[0];
+  item: any;
   index: number;
 }) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -161,6 +135,23 @@ const WhiteLinesDecor = () => (
 
 export default function QuizzesScreen() {
   const router = useRouter();
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const unsubscribe = onSnapshot(collection(db, "quizzes"), (snapshot) => {
+        if (!snapshot.empty) {
+          setQuizzes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } else {
+          setQuizzes([]);
+        }
+      });
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn("Firebase not configured:", e);
+    }
+  }, []);
+
   const headerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -183,7 +174,7 @@ export default function QuizzesScreen() {
         <WhiteLinesDecor />
       </View>
 
-      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -244,7 +235,7 @@ export default function QuizzesScreen() {
 
           {/* Lectures List */}
           <View style={styles.listContainer}>
-            {QUIZZES.map((item, idx) => (
+            {quizzes.map((item, idx) => (
               <AnimatedQuizCard key={item.id} item={item} index={idx} />
             ))}
           </View>
