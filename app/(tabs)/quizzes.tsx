@@ -55,6 +55,7 @@ function AnimatedQuizCard({
     }).start();
   }, [anim, index]);
 
+  const router = useRouter();
   const isCompleted = item.status === "مكتمل";
 
   return (
@@ -74,7 +75,7 @@ function AnimatedQuizCard({
         },
       ]}
     >
-      <TouchableOpacity activeOpacity={0.8} style={styles.card}>
+      <TouchableOpacity activeOpacity={0.8} style={styles.card} onPress={() => router.push('/quiz/' + item.id)}>
         <View
           style={[
             styles.cardIconBox,
@@ -112,9 +113,7 @@ function AnimatedQuizCard({
                 الدرجة: {item.score}
               </Text>
             ) : (
-              <Text style={[styles.progressLabel, { color: C.gold }]}>
-                متاح قريباً
-              </Text>
+              <Text style={[styles.progressLabel, { color: C.gold }]}>ابدأ الاختبار</Text>
             )}
           </View>
         </View>

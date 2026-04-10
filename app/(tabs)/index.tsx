@@ -1,20 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef } from 'react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  Easing,
-  I18nManager,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Animated,
+    Easing,
+    I18nManager,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { auth, db } from '../../firebase';
 // Precise Colors extracted from the design
 const C = {
   bgTop: '#0B2923',
@@ -45,6 +46,7 @@ const STATIONS = [
   { id: 'subjects', title: 'موادي', subtitle: 'المقررات الدراسية', icon: 'stats-chart', isDark: true, route: '/(tabs)/subjects' },
   { id: 'quizzes', title: 'كوزاتي', subtitle: 'الاختبارات القصيرة', icon: 'document-text', isDark: false, route: '/(tabs)/quizzes', badge: 'جديد', lightColor: '#174A42', lightBg: '#EEF3F2' },
   { id: 'notifications', title: 'إشعاراتي', subtitle: 'التنبيهات والرسائل', icon: 'notifications', isDark: false, route: '/(tabs)/notifications', badgeCount: 3, lightColor: '#CD713C', lightBg: '#FDEDE2' },
+  { id: 'chat', title: 'المحادثات', subtitle: 'التواصل مع المعلمين', icon: 'chatbubbles', isDark: false, route: '/chat_list', lightColor: '#56756F', lightBg: '#F2F6F5' },
 ];
 
 // ─── Animated Decorative Circles ─────────────────────────────────
@@ -257,11 +259,31 @@ const AnimatedProgressBar = () => {
 // ═════════════════════════════════════════════════════════════════
 export default function HomeScreen() {
   const router = useRouter();
+  const [totalUnread, setTotalUnread] = useState(0);
 
   // Staggered entrance anims
   const headerAnim = useRef(new Animated.Value(0)).current;
   const heroAnim = useRef(new Animated.Value(0)).current;
   const sectionAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      const qChats = query(collection(db, 'chats'), where('participants', 'array-contains', user.uid));
+      const unsubscribe = onSnapshot(qChats, (snapshot) => {
+        let count = 0;
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const unread = data[`unreadCount_${user.uid}`] || 0;
+          count += unread;
+        });
+        setTotalUnread(count);
+      }, (error) => {
+        console.error("Error fetching chats:", error);
+      });
+      return () => unsubscribe();
+    }
+  }, []);
 
   useEffect(() => {
     if (!I18nManager.isRTL) {
@@ -351,14 +373,20 @@ export default function HomeScreen() {
 
           {/* ─── Stations Grid ─────────────────────── */}
           <View style={styles.stationsGrid}>
-            {STATIONS.map((station, i) => (
+            {STATIONS.map((station, i) => {
+              const displayStation = { ...station };
+              if (displayStation.id === 'chat' && totalUnread > 0) {
+                displayStation.badgeCount = totalUnread;
+              }
+              return (
               <AnimatedStationCard
-                key={station.id}
-                station={station}
+                key={displayStation.id}
+                station={displayStation}
                 index={i}
-                onPress={() => router.push(station.route as any)}
+                onPress={() => router.push(displayStation.route as any)}
               />
-            ))}
+              );
+            })}
           </View>
 
           <View style={{ height: 40 }} />

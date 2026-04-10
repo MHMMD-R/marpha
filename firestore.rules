@@ -31,6 +31,14 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Chats Data
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null;
+    }
+    match /chats/{chatId}/messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+
     // Quizzes Data
     match /quizzes/{quizId} {
       allow read: if true;
@@ -41,5 +49,12 @@ service cloud.firestore {
     match /lectures/{lectureId} {
       allow read: if true;
       allow write: if true; // In production restrict to creators/admins
-    }  }
+    }
+
+    // Quiz Submissions Data
+    match /quiz_submissions/{submissionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
 }

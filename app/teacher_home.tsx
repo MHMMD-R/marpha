@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { signOut } from 'firebase/auth';
-import { collection, doc, getCountFromServer, getDoc, query, where } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { collection, doc, getCountFromServer, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../firebase';
 
@@ -21,6 +20,43 @@ const C = {
   softGreen: '#EEF5F3',
   softGold: '#FFF8E8',
   textPrimary: '#10241F',
+  heroCard: '#0A1C18',
+  heroDecor: '#152C26',
+};
+
+const HeroDecorations = () => {
+  const scale1 = useRef(new Animated.Value(1)).current;
+  const scale2 = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale1, { toValue: 1.08, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(scale1, { toValue: 1, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale2, { toValue: 1.06, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(scale2, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, [scale1, scale2]);
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 28 }]} pointerEvents="none">
+      <Animated.View style={[styles.decorCircle, {
+        width: 180, height: 180, borderRadius: 90, top: -40, left: -40,
+        backgroundColor: C.heroDecor, opacity: 0.8,
+        transform: [{ scale: scale1 }],
+      }]} />
+      <Animated.View style={[styles.decorCircle, {
+        width: 240, height: 240, borderRadius: 120, bottom: -80, right: -60,
+        backgroundColor: C.heroDecor, opacity: 0.6,
+        transform: [{ scale: scale2 }],
+      }]} />
+    </View>
+  );
 };
 
 type TeacherData = {
@@ -38,6 +74,7 @@ export default function TeacherHome() {
   const router = useRouter();
   const [teacherData, setTeacherData] = useState<TeacherData | null>(null);
   const [stats, setStats] = useState<TeacherStats>({ lectures: 0, quizzes: 0 });
+  const [totalUnread, setTotalUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -78,20 +115,28 @@ export default function TeacherHome() {
 
   useEffect(() => {
     loadTeacherHomeData();
+
+    const user = auth.currentUser;
+    if (user) {
+      const qChats = query(collection(db, 'chats'), where('participants', 'array-contains', user.uid));
+      const unsubscribe = onSnapshot(qChats, (snapshot) => {
+        let count = 0;
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const unread = data[`unreadCount_${user.uid}`] || 0;
+          count += unread;
+        });
+        setTotalUnread(count);
+      }, (error) => {
+        console.error("Error fetching chats:", error);
+      });
+      return () => unsubscribe();
+    }
   }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
     loadTeacherHomeData();
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.replace('/login');
-    } catch (error: any) {
-      alert('خطأ: ' + error.message);
-    }
   };
 
   if (loading) {
@@ -109,9 +154,19 @@ export default function TeacherHome() {
       
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
-            <Ionicons name="log-out-outline" size={24} color={C.white} />
-          </TouchableOpacity>
+          <View style={styles.headerLeftIcons}>
+            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.logoutBtn}>
+              <Ionicons name="person-outline" size={24} color={C.white} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/chat_list')} style={[styles.logoutBtn, { marginLeft: 12 }]}>
+              <Ionicons name="chatbubbles-outline" size={24} color={C.white} />
+              {totalUnread > 0 && (
+                <View style={styles.topBadgeContainer}>
+                  <Text style={styles.topBadgeText}>{totalUnread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerSubtitle}>بوابة المعلم</Text>
             <Text style={styles.headerTitle}>{teacherData?.name || 'مرحباً أستاذ'}</Text>
@@ -124,34 +179,28 @@ export default function TeacherHome() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
         >
 
-          <View style={styles.profileCard}>
-            <View style={styles.profileHeaderRow}>
-              <View style={styles.teacherBadge}>
-                <Ionicons name="school-outline" size={16} color={C.primary} />
-                <Text style={styles.teacherBadgeText}>{teacherData?.subject || 'مادة عامة'}</Text>
+          <View style={styles.heroCard}>
+            <HeroDecorations />
+            <View style={styles.heroContent}>
+              <View style={styles.heroBadgeRow}>
+                <View style={styles.heroBadge}>
+                  <Text style={styles.heroBadgeText}>ملخص النشاط</Text>
+                  <Ionicons name="stats-chart" size={14} color="#2FD67C" style={{ marginLeft: 4 }} />
+                </View>
               </View>
-              <View style={styles.avatarCircle}>
-                <Ionicons name="person" size={26} color={C.white} />
+              <Text style={styles.heroTitle}>إحصائياتك العامة</Text>
+              
+              <View style={styles.heroStatsContainer}>
+                <View style={styles.heroStatItem}>
+                  <Text style={styles.heroStatValue}>{stats.lectures}</Text>
+                  <Text style={styles.heroStatLabel}>إجمالي المحاضرات</Text>
+                </View>
+                <View style={styles.heroStatDivider} />
+                <View style={styles.heroStatItem}>
+                  <Text style={styles.heroStatValue}>{stats.quizzes}</Text>
+                  <Text style={styles.heroStatLabel}>إجمالي الاختبارات</Text>
+                </View>
               </View>
-            </View>
-            <Text style={styles.profileName}>{teacherData?.name || 'مرحباً أستاذ'}</Text>
-            <Text style={styles.profileEmail}>{teacherData?.email || 'teacher@marpha.app'}</Text>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconWrap, { backgroundColor: C.softGreen }]}>
-                <Ionicons name="videocam" size={20} color={C.primary} />
-              </View>
-              <Text style={styles.statValue}>{stats.lectures}</Text>
-              <Text style={styles.statLabel}>إجمالي المحاضرات</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconWrap, { backgroundColor: C.softGold }]}>
-                <Ionicons name="document-text" size={20} color={C.accent} />
-              </View>
-              <Text style={styles.statValue}>{stats.quizzes}</Text>
-              <Text style={styles.statLabel}>إجمالي الاختبارات</Text>
             </View>
           </View>
 
@@ -240,6 +289,10 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 22,
   },
+  headerLeftIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   logoutBtn: {
     width: 44,
     height: 44,
@@ -247,6 +300,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  topBadgeContainer: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: C.danger,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: C.topOverlay,
+  },
+  topBadgeText: {
+    color: C.white,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   headerTitleContainer: {
     alignItems: 'flex-end',
@@ -265,97 +338,35 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 8,
   },
-  profileCard: {
-    backgroundColor: C.white,
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: C.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
-    elevation: 5,
+  decorCircle: { position: 'absolute' },
+  heroCard: {
+    backgroundColor: C.heroCard,
+    borderRadius: 32,
+    overflow: 'hidden',
+    marginBottom: 32,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 24 },
+      android: { elevation: 8 },
+    }),
   },
-  profileHeaderRow: {
-    flexDirection: 'row',
+  heroContent: { padding: 26 },
+  heroBadgeRow: { flexDirection: 'row', marginBottom: 20, direction: 'rtl' },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A3F37', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
+  heroBadgeText: { fontSize: 12, fontWeight: '800', color: C.white },
+  heroTitle: { fontSize: 26, fontWeight: '900', color: C.white, marginBottom: 20, textAlign: 'right' },
+  heroStatsContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    padding: 16,
+    direction: 'rtl'
   },
-  teacherBadge: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    backgroundColor: C.softGreen,
-    borderRadius: 12,
-  },
-  teacherBadgeText: {
-    fontSize: 12,
-    color: C.primary,
-    fontWeight: '700',
-  },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: C.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileName: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: C.textPrimary,
-    textAlign: 'right',
-    marginBottom: 4,
-  },
-  profileEmail: {
-    fontSize: 13,
-    color: C.textSecondary,
-    textAlign: 'right',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 26,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginHorizontal: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 18,
-    elevation: 3,
-  },
-  statIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#111A18',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#9AA7A4',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+  heroStatItem: { alignItems: 'center', flex: 1 },
+  heroStatValue: { fontSize: 28, fontWeight: '900', color: C.accent, marginBottom: 4 },
+  heroStatLabel: { fontSize: 12, color: '#9FB5AF', fontWeight: '600' },
+  heroStatDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.1)' },
   sectionHeader: {
     marginBottom: 14,
   },

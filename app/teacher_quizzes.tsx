@@ -23,7 +23,7 @@ export default function TeacherQuizzesScreen() {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [quizTitle, setQuizTitle] = useState('');
-  const [questions, setQuestions] = useState<{ id: string, qUri: string, aUri: string }[]>([]);
+  const [questions, setQuestions] = useState<{ id: string, qUri: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -78,9 +78,7 @@ export default function TeacherQuizzesScreen() {
       let i = 1;
       for (const q of questions) {
         const qUrl = await uploadImage(q.qUri, `q${i}`, user.uid);
-        let aUrl = '';
-        if (q.aUri) aUrl = await uploadImage(q.aUri, `a${i}`, user.uid);
-        uploadedQuestions.push({ questionImage: qUrl, answerImage: aUrl });
+        uploadedQuestions.push({ questionImage: qUrl });     
         i++;
       }
       await addDoc(collection(db, 'quizzes'), {
@@ -96,12 +94,12 @@ export default function TeacherQuizzesScreen() {
     }
   };
 
-  const pickImage = async (id: string, type: 'qUri' | 'aUri') => {
+  const pickImage = async (id: string, type: 'qUri') => {
     let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
     if (!result.canceled) setQuestions(prev => prev.map(q => q.id === id ? { ...q, [type]: result.assets[0].uri } : q));
   };
 
-  const addQuestion = () => setQuestions(prev => [...prev, { id: Math.random().toString(), qUri: '', aUri: '' }]);
+  const addQuestion = () => setQuestions(prev => [...prev, { id: Math.random().toString(), qUri: '', }]);
   const removeQuestion = (id: string) => setQuestions(prev => prev.filter(q => q.id !== id));
 
   const alertDelete = (id: string) => Alert.alert('حذف', 'هل أنت متأكد من حذف هذا الاختبار؟', [{text:'إلغاء',style:'cancel'},{text:'حذف', style:'destructive', onPress:()=>deleteDoc(doc(db,'quizzes',id))}]);
@@ -158,10 +156,7 @@ export default function TeacherQuizzesScreen() {
                     <Text style={styles.questionTitle}>سؤال {idx + 1}</Text>
                   </View>
                   <View style={styles.imagePickersRow}>
-                    <TouchableOpacity style={styles.imagePickerBtn} onPress={() => pickImage(q.id, 'aUri')}>
-                      {q.aUri ? <Image source={{ uri: q.aUri }} style={styles.pickedImg} /> : <View style={styles.imgCenter}><Ionicons name='camera-outline' size={24} color={C.textSecondary} /><Text style={styles.imgLabel}>صورة الإجابة (اختياري)</Text></View>}
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.imagePickerBtn} onPress={() => pickImage(q.id, 'qUri')}>
+                    <TouchableOpacity style={[styles.imagePickerBtn, { flex: 1, backgroundColor: '#f0f0f0' }]} onPress={() => pickImage(q.id, 'qUri')}>
                       {q.qUri ? <Image source={{ uri: q.qUri }} style={styles.pickedImg} /> : <View style={styles.imgCenter}><Ionicons name='camera-outline' size={24} color={C.topOverlay} /><Text style={[styles.imgLabel, {color: C.topOverlay}]}>صورة السؤال (مطلوب)</Text></View>}
                     </TouchableOpacity>
                   </View>

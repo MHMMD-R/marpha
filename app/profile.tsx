@@ -23,6 +23,7 @@ const COLORS = {
 export default function ProfileScreen() {
   const router = useRouter();
   const [userData, setUserData] = useState<any>(null);
+  const [role, setRole] = useState<'student' | 'teacher' | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,10 +31,21 @@ export default function ProfileScreen() {
       try {
         const user = auth.currentUser;
         if (user) {
-          const docRef = doc(db, 'students', user.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            setUserData(docSnap.data());
+          // Check if teacher first
+          const teacherDocRef = doc(db, 'teachers', user.uid);
+          const teacherSnap = await getDoc(teacherDocRef);
+          if (teacherSnap.exists()) {
+            setRole('teacher');
+            setUserData(teacherSnap.data());
+            return;
+          }
+
+          // Otherwise, must be a student
+          const studentDocRef = doc(db, 'students', user.uid);
+          const studentSnap = await getDoc(studentDocRef);
+          if (studentSnap.exists()) {
+            setRole('student');
+            setUserData(studentSnap.data());
           }
         }
       } catch (error) {
@@ -82,14 +94,18 @@ export default function ProfileScreen() {
           
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
-              <Text style={styles.statLabel}>الفرع</Text>
+              <Text style={styles.statLabel}>{role === 'teacher' ? 'المادة' : 'الفرع'}</Text>
               <Text style={styles.statValue}>{userData?.subject || 'عام'}</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>التقدم</Text>
-              <Text style={styles.statValue}>{userData?.progress || 0}%</Text>
-            </View>
+            {role !== 'teacher' && (
+              <>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Text style={styles.statLabel}>التقدم</Text>
+                  <Text style={styles.statValue}>{userData?.progress || 0}%</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 

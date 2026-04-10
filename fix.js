@@ -1,3 +1,62 @@
+Microsoft Windows [Version 10.0.22631.6199]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\m90\Documents\programing\marpha>
+
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+C:\Users\m90\Documents\programing\marpha>
+
+C:\Users\m90\Documents\programing\marpha>success
+success
+success
+updated
+
+C:\Users\m90\Documents\programing\marpha\app\subject\[id].tsx
+    9:16  warning  'SCREEN_W' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  147:16  warning  'err' is defined but never used                @typescript-eslint/no-unused-vars
+
+✖ 2 problems (0 errors, 2 warnings)
+
+
+C:\Users\m90\Documents\programing\marpha\app\subject\[id].tsx
+    9:16  warning  'SCREEN_W' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  147:16  warning  'err' is defined but never used                @typescript-eslint/no-unused-vars
+
+✖ 2 problems (0 errors, 2 warnings)
+
+Yes
+Yes
+
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
