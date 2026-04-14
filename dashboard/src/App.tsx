@@ -4,10 +4,14 @@ import {
     BookOpen,
     Check,
     ChevronLeft,
+    Edit2,
     GraduationCap,
     LayoutDashboard,
+    MessageCircle,
+    Save,
     Search,
     Settings,
+    Trash2,
     TrendingDown,
     TrendingUp,
     Users,
@@ -15,13 +19,33 @@ import {
     X,
     XCircle,
 } from "lucide-react";
+import { GroupsPanel } from "./GroupsPanel";
 import "./index.css";
 
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { addDoc, collection, doc, onSnapshot, setDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { auth, db } from "./firebase";
+import { db } from "./firebase";
 import { uploadToR2 } from "./r2";
+
+// Iraqi 6th Preparatory (السادس الإعدادي) — Scientific & Literary branches
+const IRAQI_SUBJECTS = [
+  "الرياضيات",
+  "الفيزياء",
+  "الكيمياء",
+  "الأحياء",
+  "اللغة العربية",
+  "اللغة الإنجليزية",
+  "اللغة الفرنسية",
+  "التربية الإسلامية",
+  "التاريخ",
+  "الجغرافية",
+  "الاقتصاد",
+  "الأدب والنصوص",
+  "القواعد",
+  "الفلسفة وعلم النفس",
+  "الحاسوب",
+];
 
 // ─── Data ───────────────────────────────────────────────────────
 const STATS = [
@@ -48,16 +72,18 @@ const FALLBACK_SUBJECTS = [
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "لوحة التحكم", id: "dashboard" },
-  { icon: Users, label: "الطلاب", badge: "1.2K", id: "students" },
+  { icon: Users, label: "الطلاب", id: "students" },
   { icon: Users, label: "المعلمون", id: "teachers" },
   { icon: BookOpen, label: "المواد", id: "subjects" },
   { icon: Video, label: "المحاضرات", id: "videos" },
+  { icon: MessageCircle, label: "المجموعات", id: "groups" },
   { icon: Bell, label: "طلبات الرفع", id: "requests" },
   { icon: GraduationCap, label: "الاختبارات", id: "exams" },
+  { icon: Bell, label: "الإشعارات الذكية", id: "notifications" },
 ];
 
 const NAV_ITEMS_SYSTEM = [
-  { icon: Bell, label: "الإشعارات", badge: "3" },
+  { icon: Bell, label: "الإشعارات"},
   { icon: Settings, label: "الإعدادات" },
 ];
 
@@ -74,6 +100,7 @@ function App() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  
   const [videos, setVideos] = useState<any[]>([]);
   
   // Custom Modal State
@@ -81,6 +108,7 @@ function App() {
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentEmail, setNewStudentEmail] = useState("");
   const [newStudentPassword, setNewStudentPassword] = useState("");
+  const [newStudentImage, setNewStudentImage] = useState<File | null>(null);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
 
   const [isAddTeacherOpen, setIsAddTeacherOpen] = useState(false);
@@ -88,13 +116,181 @@ function App() {
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
   const [newTeacherPassword, setNewTeacherPassword] = useState("");
   const [newTeacherSubject, setNewTeacherSubject] = useState("");
+  const [newTeacherImage, setNewTeacherImage] = useState<File | null>(null);
   const [isAddingTeacher, setIsAddingTeacher] = useState(false);
 
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false);
   const [newVideoTitle, setNewVideoTitle] = useState("");
+  const [newVideoDescription, setNewVideoDescription] = useState("");
   const [newVideoSubject, setNewVideoSubject] = useState("");
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
   const [isAddingVideo, setIsAddingVideo] = useState(false);
+
+  const [manageTarget, setManageTarget] = useState<{ type: 'student' | 'teacher', data: any } | null>(null);
+  const [showQR, setShowQR] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editFormData, setEditFormData] = useState({ name: "", subject: "" });
+  const [isSavingUser, setIsSavingUser] = useState(false);
+
+  const handleEditUserToggle = () => {
+    if (manageTarget) {
+      setEditFormData({
+        name: manageTarget.data.name || "",
+        subject: manageTarget.data.subject || ""
+      });
+      setIsEditingUser(true);
+    }
+  };
+
+  const handleUpdateTargetUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manageTarget) return;
+    setIsSavingUser(true);
+    try {
+      const collectionName = manageTarget.type === 'student' ? 'students' : 'teachers';
+      const userRef = doc(db, collectionName, manageTarget.data.id || manageTarget.data.uid);
+      await updateDoc(userRef, {
+        name: editFormData.name,
+        ...(manageTarget.type === 'teacher' ? { subject: editFormData.subject } : {})
+      });
+      
+      setManageTarget({
+        ...manageTarget,
+        data: { ...manageTarget.data, name: editFormData.name, subject: editFormData.subject }
+      });
+      setIsEditingUser(false);
+    } catch (err: any) {
+      alert("خطأ في التحديث: " + err.message);
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleDeleteTargetUser = async () => {
+    if (!manageTarget) return;
+    if (!window.confirm("هل أنت متأكد من رغبتك في حذف هذا المستخدم نهائياً وجميع البيانات المرتبطة به؟ لا يمكن التراجع.")) return;
+    
+    setIsSavingUser(true);
+    try {
+      const uid = manageTarget.data.id || manageTarget.data.uid;
+      // Delete chat messages
+      const chatsSnap = await getDocs(query(collection(db, 'chats'), where('participants', 'array-contains', uid)));
+      for (const chatDoc of chatsSnap.docs) {
+        const msgSnap = await getDocs(collection(db, `chats/${chatDoc.id}/messages`));
+        for (const mSnap of msgSnap.docs) {
+          await deleteDoc(doc(db, `chats/${chatDoc.id}/messages`, mSnap.id));
+        }
+        await deleteDoc(doc(db, 'chats', chatDoc.id));
+      }
+
+      const type = manageTarget.type;
+
+      if (type === 'student') {
+        const subSnap = await getDocs(query(collection(db, 'quiz_submissions'), where('studentId', '==', uid)));
+        for (const docSnap of subSnap.docs) {
+          await deleteDoc(doc(db, 'quiz_submissions', docSnap.id));
+        }
+      } else if (type === 'teacher') {
+        const quizzesSnap = await getDocs(query(collection(db, 'quizzes'), where('teacherId', '==', uid)));
+        for (const docSnap of quizzesSnap.docs) {
+          await deleteDoc(doc(db, 'quizzes', docSnap.id));
+        }
+        
+        const lecturesSnap = await getDocs(query(collection(db, 'lectures'), where('teacherId', '==', uid)));
+        for (const docSnap of lecturesSnap.docs) {
+          await deleteDoc(doc(db, 'lectures', docSnap.id));
+        }
+      }
+
+      const collectionName = type === 'student' ? 'students' : 'teachers';
+      const userRef = doc(db, collectionName, uid);
+      await deleteDoc(userRef);
+      
+      setManageTarget(null);
+      setIsEditingUser(false);
+      setShowQR(false);
+    } catch (err: any) {
+      alert("خطأ في الحذف: " + err.message);
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const [notificationTitle, setNotificationTitle] = useState("");
+  const [notificationBody, setNotificationBody] = useState("");
+  const [notificationTarget, setNotificationTarget] = useState<"students" | "teachers" | "all">("all");
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState("");
+
+  const handleUpdateTeacherImage = async (teacherId: string, file: File) => {
+    try {
+      const publicUrl = await uploadToR2(file, "PROFILES", teacherId);
+      await updateDoc(doc(db, "teachers", teacherId), { image: publicUrl });
+      
+      // Update local state to reflect UI change immediately
+      setManageTarget(prev => prev ? { ...prev, data: { ...prev.data, image: publicUrl } } : null);
+      
+      alert("تم تحديث صورة المعلم بنجاح");
+    } catch(err: any) {
+      alert("خطأ في تحديث الصورة: " + err.message);
+    }
+  };
+
+  const handleSendNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notificationTitle.trim() || !notificationBody.trim()) return;
+
+    setIsSendingNotification(true);
+    setNotificationStatus("جاري استخراج بيانات المستخدمين...");
+
+    try {
+      let targetTokens: string[] = [];
+
+      if (notificationTarget === "students" || notificationTarget === "all") {
+        targetTokens = [...targetTokens, ...students.map(s => s.expoPushToken).filter(Boolean)];
+      }
+      if (notificationTarget === "teachers" || notificationTarget === "all") {
+        targetTokens = [...targetTokens, ...teachers.map(t => t.expoPushToken).filter(Boolean)];
+      }
+
+      if (targetTokens.length === 0) {
+        setNotificationStatus("خطأ: لم يتم العثور على أجهزة مسجلة لتلقي الإشعارات.");
+        setIsSendingNotification(false);
+        return;
+      }
+
+      setNotificationStatus(`جاري إرسال الإشعار إلى ${targetTokens.length} جهاز...`);
+
+      const messages = targetTokens.map(token => ({
+        to: token,
+        sound: 'default',
+        title: notificationTitle,
+        body: notificationBody,
+        data: { route: 'notification' },
+      }));
+
+      const res = await fetch('/expo-push-api/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages),
+      });
+
+      if (!res.ok) throw new Error("Failed to send notification");
+
+      setNotificationStatus("تم الإرسال بنجاح!");
+      setNotificationTitle("");
+      setNotificationBody("");
+      setTimeout(() => setNotificationStatus(""), 3000);
+    } catch (error: any) {
+      setNotificationStatus(`حدث خطأ: ${error.message}`);
+    } finally {
+      setIsSendingNotification(false);
+    }
+  };
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,20 +298,37 @@ function App() {
     
     setIsAddingTeacher(true);
     try {
+      let finalTeacherName = newTeacherName.trim();
+      if (!finalTeacherName.startsWith("استاذ ") && !finalTeacherName.startsWith("أستاذ ")) {
+        finalTeacherName = "استاذ " + finalTeacherName;
+      }
+
       // Use secondaryAuth so the dashboard user (admin) doesn't get logged out!
       const { secondaryAuth } = await import("./firebase");
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newTeacherEmail, newTeacherPassword);
       const user = userCredential.user;
       
-      await updateProfile(user, { displayName: newTeacherName });
+      await updateProfile(user, { displayName: finalTeacherName });
+
+      let profileImage = "https://ui-avatars.com/api/?name=" + encodeURIComponent(finalTeacherName) + "&background=10b981&color=fff";
+      if (newTeacherImage) {
+        try {
+          const publicUrl = await uploadToR2(newTeacherImage, "PROFILES", user.uid);
+          profileImage = publicUrl;
+        } catch (uploadErr) {
+          console.error("Failed to upload profile picture:", uploadErr);
+          // Fallback to anon pic if upload fails
+        }
+      }
 
       // Save to firestore using the primary db instance (since admin has rights)
       await setDoc(doc(db, "teachers", user.uid), {
         uid: user.uid,
-        name: newTeacherName,
+        name: finalTeacherName,
         email: newTeacherEmail,
+        password: newTeacherPassword, // saved for barcode sign-in
         subject: newTeacherSubject,
-        image: "https://i.pravatar.cc/150?u=" + user.uid,
+        image: profileImage,
         createdAt: new Date().toISOString()
       });
 
@@ -127,6 +340,7 @@ function App() {
       setNewTeacherEmail("");
       setNewTeacherPassword("");
       setNewTeacherSubject("");
+      setNewTeacherImage(null);
       setIsAddTeacherOpen(false);
     } catch(err: any) {
       alert("خطأ في الإضافة: " + err.message);
@@ -141,25 +355,40 @@ function App() {
     
     setIsAddingStudent(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, newStudentEmail, newStudentPassword);
+      const { secondaryAuth } = await import("./firebase");
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newStudentEmail, newStudentPassword);
       const user = userCredential.user;
-      
+
       await updateProfile(user, { displayName: newStudentName });
+
+      let profileImage = "https://ui-avatars.com/api/?name=" + encodeURIComponent(newStudentName) + "&background=10b981&color=fff";
+      if (newStudentImage) {
+        try {
+          const publicUrl = await uploadToR2(newStudentImage, "PROFILES", user.uid);
+          profileImage = publicUrl;
+        } catch (uploadErr) {
+          console.error("Failed to upload profile picture:", uploadErr);
+        }
+      }
 
       await setDoc(doc(db, "students", user.uid), {
         uid: user.uid,
         name: newStudentName,
         email: newStudentEmail,
+        password: newStudentPassword,
         subject: "عام",
         progress: 0,
         status: "active",
+        image: profileImage,
         createdAt: new Date().toISOString()
       });
 
-      // Reset form and close modal
+      await secondaryAuth.signOut();
+
       setNewStudentName("");
       setNewStudentEmail("");
       setNewStudentPassword("");
+      setNewStudentImage(null);
       setIsAddStudentOpen(false);
     } catch(err: any) {
       alert("خطأ في الإضافة: " + err.message);
@@ -182,13 +411,37 @@ function App() {
       // 2. Save metadata to Firestore
       await addDoc(collection(db, "lectures"), {
         title: newVideoTitle,
+        description: newVideoDescription,
         subject: newVideoSubject,
         videoUrl: publicUrl,
         createdAt: new Date().toISOString()
       });
 
+      // 3. Send Push Notification to all students
+      const targetTokens = students.map(s => s.expoPushToken).filter(Boolean);
+      if (targetTokens.length > 0) {
+        const messages = targetTokens.map(token => ({
+          to: token,
+          sound: 'default',
+          title: `محاضرة جديدة: ${newVideoSubject}`,
+          body: `تمت إضافة محاضرة جديدة بعنوان "${newVideoTitle}"`,
+          data: { route: 'lectures' },
+        }));
+
+        fetch('/expo-push-api/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(messages),
+        }).catch(err => console.error("Push notification error:", err));
+      }
+
       // Reset form
       setNewVideoTitle("");
+      setNewVideoDescription("");
       setNewVideoSubject("");
       setNewVideoFile(null);
       setIsAddVideoOpen(false);
@@ -276,6 +529,8 @@ function App() {
           setTeachers([]);
         }
       });
+
+      
       
       const unsubVideos = onSnapshot(collection(db, "lectures"), (snapshot) => {
         if (!snapshot.empty) {
@@ -297,6 +552,7 @@ function App() {
         unsubSubjects();
         unsubStudents();
         unsubTeachers();
+        
         unsubVideos();
       }
     } catch (e) {
@@ -313,7 +569,7 @@ function App() {
             <GraduationCap size={22} color="#fff" />
           </div>
           <div>
-            <h1>مرفأ</h1>
+            <h1>معرفى</h1>
             <span>لوحة التحكم</span>
           </div>
         </div>
@@ -541,6 +797,7 @@ function App() {
                       <th>تاريخ الانضمام</th>
                       <th>التقدم</th>
                       <th>الحالة</th>
+                      <th>إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -571,10 +828,13 @@ function App() {
                             {s.status === "active" ? "نشط" : s.status === "pending" ? "معلق" : "غير نشط"}
                           </span>
                         </td>
+                        <td>
+                          <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.8rem", width: "auto" }} onClick={() => { setManageTarget({ type: 'student', data: s }); setShowQR(false); setIsEditingUser(false); }}>إدارة</button>
+                        </td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={5} style={{ textAlign: "center", padding: "40px", color: "#8A9E99" }}>لا يوجد طلاب مسجلين.</td>
+                        <td colSpan={6} style={{ textAlign: "center", padding: "40px", color: "#8A9E99" }}>لا يوجد طلاب مسجلين.</td>
                       </tr>
                     )}
                   </tbody>
@@ -597,6 +857,7 @@ function App() {
                       <th>المعلم</th>
                       <th>المادة</th>
                       <th>تاريخ الانضمام</th>
+                      <th>إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -614,10 +875,13 @@ function App() {
                         </td>
                         <td style={{ fontWeight: 600 }}>{t.subject}</td>
                         <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString('ar-EG') : '—'}</td>
+                        <td>
+                          <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.8rem", width: "auto" }} onClick={() => { setManageTarget({ type: 'teacher', data: t }); setShowQR(false); setIsEditingUser(false); }}>إدارة</button>
+                        </td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={3} style={{ textAlign: "center", padding: "40px", color: "#8A9E99" }}>لا يوجد معلمين مسجلين.</td>
+                        <td colSpan={4} style={{ textAlign: "center", padding: "40px", color: "#8A9E99" }}>لا يوجد معلمين مسجلين.</td>
                       </tr>
                     )}
                   </tbody>
@@ -675,6 +939,8 @@ function App() {
                 </table>
               </div>
             </motion.div>
+          ) : activeTab === "groups" ? (
+            <GroupsPanel />
           ) : activeTab === "requests" ? (
             <motion.div className="panel-card glass-card" {...fadeUp(0.1)} style={{ minHeight: "60vh" }}>
               <div className="panel-header">
@@ -737,6 +1003,73 @@ function App() {
                 </table>
               </div>
             </motion.div>
+          ) : activeTab === "notifications" ? (
+              <motion.div {...fadeUp()} style={{ background: "white", borderRadius: "24px", padding: "40px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", maxWidth: "800px", margin: "0 auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "32px" }}>
+                  <div style={{ padding: "16px", background: "#EFF6FF", borderRadius: "16px" }}>
+                    <Bell size={32} color="#3B82F6" />
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: "28px", fontWeight: "bold", margin: 0, color: "#111827" }}>نظام الإشعارات المباشر</h2>
+                    <p style={{ color: "#6B7280", margin: "4px 0 0 0" }}>أرسل إشعارات للتطبيق مباشرة إلى المستخدمين</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSendNotification} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "16px", fontWeight: "600", marginBottom: "12px", color: "#374151" }}>الجمهور المستهدف</label>
+                    <div style={{ display: "flex", gap: "16px" }}>
+                      {[{ id: "all", label: "الجميع" }, { id: "students", label: "الطلاب فقط" }, { id: "teachers", label: "المعلمون فقط" }].map(t => (
+                        <label key={t.id} style={{
+                          flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", cursor: "pointer", 
+                          border: notificationTarget === t.id ? "2px solid #3B82F6" : "2px solid #E5E7EB", borderRadius: "12px", 
+                          background: notificationTarget === t.id ? "#EFF6FF" : "white", fontWeight: "bold", color: notificationTarget === t.id ? "#1E40AF" : "#4B5563", transition: "all 0.2s"
+                        }}>
+                          <input type="radio" value={t.id} checked={notificationTarget === t.id} onChange={(e) => setNotificationTarget(e.target.value as any)} style={{ display: "none" }} />
+                          {t.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "16px", fontWeight: "600", marginBottom: "12px", color: "#374151" }}>عنوان الإشعار</label>
+                    <input
+                      type="text"
+                      style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1px solid #D1D5DB", fontSize: "16px", background: "#F9FAFB", outline: "none" }}
+                      placeholder="مثال: محاضرة جديدة في مادة الفيزياء"
+                      value={notificationTitle}
+                      onChange={(e) => setNotificationTitle(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "16px", fontWeight: "600", marginBottom: "12px", color: "#374151" }}>نص الإشعار</label>
+                    <textarea
+                      rows={4}
+                      style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1px solid #D1D5DB", fontSize: "16px", background: "#F9FAFB", outline: "none", resize: "none" }}
+                      placeholder="أدخل رسالة الإشعار كاملة هنا..."
+                      value={notificationBody}
+                      onChange={(e) => setNotificationBody(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px" }}>
+                    <span style={{ fontSize: "14px", fontWeight: "600", color: "#4B5563" }}>{notificationStatus}</span>
+                    <button
+                      type="submit"
+                      disabled={isSendingNotification}
+                      style={{
+                        padding: "16px 32px", background: "#3B82F6", color: "white", fontWeight: "bold", fontSize: "16px", borderRadius: "12px", border: "none", cursor: isSendingNotification ? "not-allowed" : "pointer", opacity: isSendingNotification ? 0.7 : 1, display: "flex", alignItems: "center", gap: "8px", transition: "transform 0.1s"
+                      }}
+                    >
+                      {isSendingNotification ? "جاري الإرسال..." : <><Bell size={20} /> إرسال الإشعار</>}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
           ) : (
             <div style={{ textAlign: "center", padding: "50px", opacity: 0.5 }}>
               <h3>قريباً...</h3>
@@ -796,6 +1129,16 @@ function App() {
                   onChange={(e) => setNewStudentPassword(e.target.value)} 
                   placeholder="كلمة مرور مبدئية"
                   required
+                  disabled={isAddingStudent}
+                  style={{ textAlign: "right" }}
+                />
+              </div>
+              <div className="form-group">
+                <label>الصورة الشخصية (اختياري)</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setNewStudentImage(e.target.files ? e.target.files[0] : null)} 
                   disabled={isAddingStudent}
                   style={{ textAlign: "right" }}
                 />
@@ -877,13 +1220,27 @@ function App() {
               </div>
               <div className="form-group">
                 <label>المادة (التخصص)</label>
-                <input 
-                  type="text" 
+                <select 
                   value={newTeacherSubject} 
                   onChange={(e) => setNewTeacherSubject(e.target.value)} 
-                  placeholder="مثال: الرياضيات"
                   required
                   disabled={isAddingTeacher}
+                  style={{ textAlign: "right" }}
+                >
+                  <option value="" disabled>اختر المادة...</option>
+                  {IRAQI_SUBJECTS.map((subject, idx) => (
+                    <option key={idx} value={subject}>{subject}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>الصورة الشخصية (اختياري)</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setNewTeacherImage(e.target.files ? e.target.files[0] : null)} 
+                  disabled={isAddingTeacher}
+                  style={{ textAlign: "right" }}
                 />
               </div>
               <div className="modal-actions">
@@ -940,6 +1297,16 @@ function App() {
                 />
               </div>
               <div className="form-group">
+                <label>تفاصيل المحاضرة</label>
+                <textarea 
+                  value={newVideoDescription} 
+                  onChange={(e) => setNewVideoDescription(e.target.value)} 
+                  placeholder="وصف أو تفاصيل الدرس..."
+                  rows={3}
+                  disabled={isAddingVideo}
+                />
+              </div>
+              <div className="form-group">
                 <label>المادة الدراسية</label>
                 <input 
                   type="text" 
@@ -988,6 +1355,204 @@ function App() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Target Manage / QR Code Modal */}
+      {manageTarget && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <motion.div
+            className="modal-content glass-card"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            style={{ maxWidth: "450px" }}
+          >
+            <div className="modal-header">
+              <h3 style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {manageTarget.type === 'student' ? <GraduationCap size={20} color="#12453D"/> : <BookOpen size={20} color="#12453D"/>}
+                إدارة {manageTarget.type === 'student' ? 'الطالب' : 'المعلم'}
+              </h3>
+              <button
+                className="close-modal-btn"
+                onClick={() => { setManageTarget(null); setShowQR(false); setIsEditingUser(false); }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: "0 24px 24px" }}>
+              <div style={{ display: "flex", gap: "15px", marginBottom: "20px" }}>
+                <div style={{
+                  width: "60px",
+                  height: "60px",
+                  borderRadius: "12px",
+                  background: manageTarget.data.color || "#12453D",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.5rem",
+                  fontWeight: "bold",
+                  overflow: "hidden"
+                }}>
+                  {manageTarget.data.image ? (
+                     <img src={manageTarget.data.image} alt="User" style={{ width: "100%", height: "100%", objectFit: "cover"}} />
+                  ) : (
+                    manageTarget.data.avatar || manageTarget.data.name?.charAt(0) || "U"
+                  )}
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <h3 style={{ margin: "0 0 5px 0" }}>{manageTarget.data.name}</h3>
+                  <span style={{ fontSize: "0.85rem", color: "#8A9E99" }}>
+                    {manageTarget.type === 'student' ? 'طالب - ' + (manageTarget.data.subject || 'عام') : 'معلم - ' + manageTarget.data.subject}
+                  </span>
+                </div>
+              </div>
+
+              {!isEditingUser ? (
+                <>
+                  {manageTarget.type === 'teacher' && (
+                    <div className="form-group">
+                      <label>تحديث الصورة الشخصية للمعلّم</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleUpdateTeacherImage(manageTarget.data.id || manageTarget.data.uid, e.target.files[0]);
+                          }
+                        }}
+                      />
+                      <small style={{ color: "#8A9E99" }}>سيتم رفعها وتحديثها فورياً.</small>
+                    </div>
+                  )}
+
+                  <div style={{ background: "rgba(255,255,255,0.05)", padding: "16px", borderRadius: "12px", marginBottom: "20px" }}>
+                    <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#8A9E99", fontSize: "0.9rem" }}>البريد الإلكتروني</span>
+                      <strong>{manageTarget.data.email || 'غير متوفر'}</strong>
+                    </div>
+                    {manageTarget.data.password && (
+                      <div style={{ marginBottom: "0", display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#8A9E99", fontSize: "0.9rem" }}>كلمة المرور المؤقتة</span>
+                        <strong style={{ fontFamily: "monospace" }}>{manageTarget.data.password}</strong>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: "flex", gap: "10px", marginBottom: "24px" }}>
+                    <button 
+                      className="btn-secondary" 
+                      style={{ flex: 1, display: "flex", justifyContent: "center", gap: "8px", alignItems: "center" }}
+                      onClick={handleEditUserToggle}
+                    >
+                      <Edit2 size={16} />
+                      تعديل البيانات
+                    </button>
+                    <button 
+                      style={{ flex: 1, display: "flex", justifyContent: "center", gap: "8px", alignItems: "center", background: "rgba(255, 59, 48, 0.1)", color: "#FF3B30", border: "1px solid rgba(255, 59, 48, 0.3)", borderRadius: "8px", cursor: "pointer", padding: "10px", fontWeight: "600" }}
+                      onClick={handleDeleteTargetUser}
+                      disabled={isSavingUser}
+                    >
+                      <Trash2 size={16} />
+                      {isSavingUser ? "..." : "حذف الحساب"}
+                    </button>
+                  </div>
+
+                  <div style={{ textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "20px" }}>
+                    {manageTarget.data.email && manageTarget.data.password ? (      
+                      <>
+                        {!showQR ? (
+                          <button 
+                            className="btn-primary" 
+                            style={{ width: "100%" }}
+                            onClick={() => setShowQR(true)}
+                          >
+                            عرض رمز الاستجابة السريعة (QR Code) الدخول
+                          </button>
+                        ) : (
+                          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                            <h4 style={{ marginBottom: "16px" }}>رمز الدخول (QR Code)</h4>
+                            <div style={{ display: "inline-block", background: "#fff", padding: "12px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(manageTarget.data.email + '|' + manageTarget.data.password)}`}
+                                alt="QR Code"
+                                style={{ width: "180px", height: "180px", display: "block" }}
+                              />
+                            </div>
+                            <p style={{ fontSize: "0.85rem", color: "#8A9E99", marginTop: "16px", lineHeight: "1.5" }}>
+                              للتسجيل مباشرة دون الحاجة لكتابة البريد الإلكتروني وكلمة المرور.
+                            </p>
+                            <button
+                              className="btn-secondary"
+                              style={{ marginTop: "12px", width: "100%" }}
+                              onClick={() => window.print()}
+                            >
+                              طباعة الرمز
+                            </button>
+                          </motion.div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ color: "#E3A736", background: "rgba(227, 167, 54, 0.1)", padding: "12px", borderRadius: "8px", fontSize: "0.9rem" }}>
+                        لا يمكن توليد رمز استجابة سريعة، تنقص بيانات الدخول أو كلمة المرور المؤقتة.
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <form onSubmit={handleUpdateTargetUser} className="modal-form">
+                  <div className="form-group">
+                    <label>الاسم الكامل</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.name} 
+                      onChange={e => setEditFormData({ ...editFormData, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  {manageTarget.type === 'teacher' && (
+                    <div className="form-group">
+                      <label>المادة (التخصص)</label>
+                      <select 
+                        value={editFormData.subject} 
+                        onChange={e => setEditFormData({ ...editFormData, subject: e.target.value })}
+                        required
+                        style={{ textAlign: "right", padding: "12px", borderRadius: "10px", border: "1px solid #E8EDEC", backgroundColor: "#FAFBFA", width: "100%", fontSize: "0.95rem" }}
+                      >
+                        <option value="" disabled>اختر المادة...</option>
+                        {IRAQI_SUBJECTS.map((subject, idx) => (
+                          <option key={idx} value={subject}>{subject}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <p style={{ fontSize: "0.8rem", color: "#8A9E99", marginBottom: "20px" }}>
+                    ملاحظة: لتغيير البريد الإلكتروني أو كلمة المرور بشكل كامل يجب استخدام لوحة تحكم Firebase Auth للحفاظ على أمان المنصة.
+                  </p>
+                  <div className="modal-actions" style={{ marginTop: "10px" }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setIsEditingUser(false)}
+                      disabled={isSavingUser}
+                    >
+                      إلغاء التعديل
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}
+                      disabled={isSavingUser}
+                    >
+                      <Save size={16} />
+                      {isSavingUser ? "جاري الحفظ..." : "حفظ التغييرات"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </motion.div>
         </div>
       )}

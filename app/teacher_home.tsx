@@ -166,6 +166,12 @@ export default function TeacherHome() {
                 </View>
               )}
             </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => router.push({ pathname: `/group/${auth.currentUser?.uid}`, params: { name: teacherData?.name || 'المعلم' }})} 
+              style={[styles.logoutBtn, { marginLeft: 12 }]}
+            >
+              <Ionicons name="people-outline" size={24} color={C.white} />
+            </TouchableOpacity>
           </View>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerSubtitle}>بوابة المعلم</Text>

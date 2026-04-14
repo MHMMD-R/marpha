@@ -1,17 +1,19 @@
 {
   "expo": {
-    "name": "marpha",
+    "name": "معرفى",
     "slug": "marpha",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "marpha",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "marpha.mh",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -27,6 +29,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
+      "expo-camera",
       [
         "expo-splash-screen",
         {
@@ -44,6 +48,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "59053bc1-a085-4a87-a7c9-f61c7c46512b"
+      }
+    },
+    "owner": "mangobadger"
   }
 }

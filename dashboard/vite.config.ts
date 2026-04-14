@@ -2,7 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client
 import react from "@vitejs/plugin-react"
 import { defineConfig, loadEnv } from "vite"
 
-type BucketType = "LECTURES" | "QUIZZES"
+type BucketType = "LECTURES" | "QUIZZES" | "PROFILES"
 
 const sanitizeSegment = (value: string): string =>
   value
@@ -38,11 +38,13 @@ export default defineConfig(({ mode }) => {
   const buckets: Record<BucketType, string> = {
     LECTURES: env.R2_LECTURES_BUCKET || env.VITE_R2_LECTURES_BUCKET || "marpha-lectures",
     QUIZZES: env.R2_QUIZZES_BUCKET || env.VITE_R2_QUIZZES_BUCKET || "marpha-quizzes",
+    PROFILES: env.R2_PROFILES_BUCKET || env.VITE_R2_PROFILES_BUCKET || "profiles",
   }
 
   const publicBases: Record<BucketType, string> = {
     LECTURES: (env.R2_LECTURES_PUBLIC_URL || env.VITE_R2_LECTURES_PUBLIC_URL || "").replace(/\/+$/, ""),
     QUIZZES: (env.R2_QUIZZES_PUBLIC_URL || env.VITE_R2_QUIZZES_PUBLIC_URL || "").replace(/\/+$/, ""),
+    PROFILES: (env.R2_PROFILES_PUBLIC_URL || env.VITE_R2_PROFILES_PUBLIC_URL || "").replace(/\/+$/, ""),
   }
 
   const s3Client =
@@ -62,7 +64,7 @@ export default defineConfig(({ mode }) => {
       react(),
       {
         name: "r2-dev-upload-api",
-        apply: "serve",
+        apply: "serve", // This restricts the plugin to run ONLY in dev mode (`vite` or `npm run dev`)
         configureServer(server) {
           server.middlewares.use("/api/r2/upload", (req, res, next) => {
             if (req.method !== "PUT") {
@@ -79,7 +81,7 @@ export default defineConfig(({ mode }) => {
 
               const requestUrl = new URL(req.url || "", "http://localhost")
               const rawBucketType = (requestUrl.searchParams.get("bucketType") || "LECTURES").toUpperCase()
-              if (rawBucketType !== "LECTURES" && rawBucketType !== "QUIZZES") {
+              if (rawBucketType !== "LECTURES" && rawBucketType !== "QUIZZES" && rawBucketType !== "PROFILES") {
                 res.statusCode = 400
                 res.setHeader("Content-Type", "application/json")
                 res.end(JSON.stringify({ error: "Invalid bucketType" }))
@@ -189,5 +191,14 @@ export default defineConfig(({ mode }) => {
         },
       },
     ],
+    server: {
+      proxy: {
+        '/expo-push-api': {
+          target: 'https://exp.host',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/expo-push-api/, '')
+        }
+      }
+    },
   }
 })

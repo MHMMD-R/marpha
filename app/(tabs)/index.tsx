@@ -46,7 +46,7 @@ const STATIONS = [
   { id: 'subjects', title: 'موادي', subtitle: 'المقررات الدراسية', icon: 'stats-chart', isDark: true, route: '/(tabs)/subjects' },
   { id: 'quizzes', title: 'كوزاتي', subtitle: 'الاختبارات القصيرة', icon: 'document-text', isDark: false, route: '/(tabs)/quizzes', badge: 'جديد', lightColor: '#174A42', lightBg: '#EEF3F2' },
   { id: 'notifications', title: 'إشعاراتي', subtitle: 'التنبيهات والرسائل', icon: 'notifications', isDark: false, route: '/(tabs)/notifications', badgeCount: 3, lightColor: '#CD713C', lightBg: '#FDEDE2' },
-  { id: 'chat', title: 'المحادثات', subtitle: 'التواصل مع المعلمين', icon: 'chatbubbles', isDark: false, route: '/chat_list', lightColor: '#56756F', lightBg: '#F2F6F5' },
+  { id: 'groups', title: 'مجموعات النقاش', subtitle: 'الدردشة مع المعلمين', icon: 'people', isDark: false, route: '/groups', lightColor: '#4A1742', lightBg: '#F3EEF2' },
 ];
 
 // ─── Animated Decorative Circles ─────────────────────────────────
@@ -265,8 +265,21 @@ export default function HomeScreen() {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const heroAnim = useRef(new Animated.Value(0)).current;
   const sectionAnim = useRef(new Animated.Value(0)).current;
+  const [teachers, setTeachers] = useState<any[]>([]);
 
   useEffect(() => {
+    const fetchTeachers = () => {
+      const unsubscribe = onSnapshot(collection(db, 'teachers'), (snapshot) => {
+        const tList: any[] = [];
+        snapshot.forEach(docSnap => {
+          tList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        setTeachers(tList);
+      });
+      return unsubscribe;
+    };
+    const unsubT = fetchTeachers();
+
     const user = auth.currentUser;
     if (user) {
       const qChats = query(collection(db, 'chats'), where('participants', 'array-contains', user.uid));
@@ -315,7 +328,7 @@ export default function HomeScreen() {
             transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) }],
           }]}>
             <View style={styles.headerLeft}>
-              <TouchableOpacity activeOpacity={0.8} style={styles.iconBtn}>
+              <TouchableOpacity activeOpacity={0.8} style={styles.iconBtn} onPress={() => router.push('/(tabs)/notifications')}>
                 <Ionicons name="notifications-outline" size={22} color={C.textLight} />
                 <View style={styles.notificationDot} />
               </TouchableOpacity>
@@ -324,8 +337,14 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.headerRight}>
-              <Text style={styles.greetingTitle}>مرحباً بك</Text>
-              <Text style={styles.greetingSub}>ماذا تريد أن تتعلم اليوم؟</Text>
+              <TouchableOpacity onPress={() => router.push('/chat_list')} activeOpacity={0.8} style={styles.iconBtn}>
+                <Ionicons name="chatbubbles-outline" size={22} color={C.textLight} />
+                {totalUnread > 0 && (
+                  <View style={styles.topBadgeContainer}>
+                    <Text style={styles.topBadgeText}>{totalUnread}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
           </Animated.View>
 
@@ -389,6 +408,40 @@ export default function HomeScreen() {
             })}
           </View>
 
+          {/* ─── Teacher Groups Header ───────────────────── */}
+          {teachers.length > 0 && (
+            <Animated.View style={[styles.sectionHeader, {
+              opacity: sectionAnim,
+              transform: [{ translateY: sectionAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+              marginTop: 20
+            }]}>
+              <Text style={styles.sectionTitle}>مجموعات المعلمين</Text>
+            </Animated.View>
+          )}
+
+          {/* ─── Teacher Groups Grid ─────────────────────── */}
+          <View style={styles.stationsGrid}>
+            {teachers.map((teacher, i) => {
+              return (
+              <AnimatedStationCard
+                key={teacher.id}
+                station={{
+                  id: teacher.id,
+                  title: teacher.name || 'مجموعة المعلم',
+                  subtitle: teacher.subject || 'مجموعة الدعم',
+                  icon: 'people-outline',
+                  isDark: false,
+                  route: `/group/${teacher.id}`,
+                  lightBg: '#E8EDEC',
+                  lightColor: '#12453D'
+                }}
+                index={i}
+                onPress={() => router.push({ pathname: `/group/[id]`, params: { id: teacher.id, name: teacher.name }})}
+              />
+              );
+            })}
+          </View>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
@@ -421,6 +474,22 @@ const styles = StyleSheet.create({
   iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', position: 'relative' },
   notificationDot: { position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4, backgroundColor: C.gold },
   avatarBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.textLight, justifyContent: 'center', alignItems: 'center' },
+  
+  topBadgeContainer: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: C.redBadge,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: C.bgTop,
+  },
+  topBadgeText: { color: C.textLight, fontSize: 10, fontWeight: 'bold' },
 
   // Hero Card
   heroCard: {

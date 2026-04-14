@@ -3,40 +3,38 @@ import { useRouter } from "expo-router";
 import { collection, onSnapshot } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  Easing,
-  I18nManager,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Animated,
+    Easing,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { db } from "../../firebase";
 
-// Exact color palette from the Home Page
 const C = {
-  bgTop: '#0B2923',
   bgMain: '#F4F7F6',
-  heroCard: '#0A1C18',
-  heroDecor: '#152C26',
-  stationDark: '#12453D',
-  stationIconBg: '#2E5E55',
+  topOverlay: '#0B2923',
+  topOverlaySoft: '#123B34',
+  primary: '#12453D',
+  primarySoft: '#2E5E55',
+  accent: '#E3A736',
   white: '#FFFFFF',
-  gold: '#E3A736',
-  goldTrack: '#233935',
-  textLight: '#FFFFFF',
-  textGrayLight: '#9FB5AF',
-  textDark: '#111A18',
-  textGrayDark: '#8A9592',
-  redBadge: '#FF3B30',
+  textPrimary: '#10241F',
+  textSecondary: '#8A9E99',
+  borderLight: '#E8EDEC',
+  softGreen: '#EEF5F3',
+  softGold: '#FFF8E8',
+  success: '#10B981',
+  successSoft: '#ECFDF5',
+  surface: '#FFFFFF',
+  danger: '#FF3B30',
 };
-
-const STATUSES = ["الكل", "مكتمل", "قيد المشاهدة", "لم يبدأ"];
 
 type LectureItem = {
   id: string;
@@ -47,6 +45,7 @@ type LectureItem = {
   watched: boolean;
   createdAt: string;
   status?: string;
+  playlistName?: string;
 };
 
 type LectureDoc = {
@@ -57,89 +56,22 @@ type LectureDoc = {
   watched?: boolean;
   progress?: number;
   status?: string;
+  playlistName?: string;
 };
 
-// ─── Animated Decorative Circles (from Home) ─────────────────────
-const HeaderDecorations = () => {
-  const float1 = useRef(new Animated.Value(0)).current;
-  const float2 = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(float1, { toValue: 1, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(float1, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    ).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(float2, { toValue: 1, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(float2, { toValue: 0, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    ).start();
-  }, [float1, float2]);
-
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View style={[styles.decorCircle, {
-        width: 350, height: 350, borderRadius: 175, top: -50, right: -100,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        transform: [{ translateY: float1.interpolate({ inputRange: [0, 1], outputRange: [0, 12] }) }],
-      }]} />
-      <Animated.View style={[styles.decorCircle, {
-        width: 250, height: 250, borderRadius: 125, top: 150, left: -80,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        transform: [{ translateY: float2.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }],
-      }]} />
-    </View>
-  );
+type PlaylistGroup = {
+  name: string;
+  lectures: LectureItem[];
+  isExpanded: boolean;
 };
 
-// ─── Dashboard Card ───────────────────────────────────────────
-const DashboardCard = ({ videos }: { videos: LectureItem[] }) => {
-  const total = videos.length;
-  const completed = videos.filter(v => v.progress === 100).length;
-  const inProgress = videos.filter(v => v.progress > 0 && v.progress < 100).length;
-
-  return (
-    <View style={styles.heroCard}>
-      {/* Decorative circles inside hero */}
-      <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 28 }]} pointerEvents="none">
-        <View style={[styles.decorCircle, { width: 180, height: 180, borderRadius: 90, top: -40, left: -40, backgroundColor: C.heroDecor, opacity: 0.8 }]} />
-        <View style={[styles.decorCircle, { width: 240, height: 240, borderRadius: 120, bottom: -80, right: -60, backgroundColor: C.heroDecor, opacity: 0.6 }]} />
-      </View>
-
-      <View style={styles.heroContent}>
-        <View style={styles.heroStatsRow}>
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatValue}>{total}</Text>
-            <Text style={styles.heroStatLabel}>محاضرة</Text>
-          </View>
-          <View style={styles.heroStatDivider} />
-          <View style={styles.heroStatItem}>
-            <Text style={[styles.heroStatValue, { color: '#10B981' }]}>{completed}</Text>
-            <Text style={styles.heroStatLabel}>مكتمل</Text>
-          </View>
-          <View style={styles.heroStatDivider} />
-          <View style={styles.heroStatItem}>
-            <Text style={[styles.heroStatValue, { color: C.gold }]}>{inProgress}</Text>
-            <Text style={styles.heroStatLabel}>قيد المشاهدة</Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-};
-
-// ─── Animated Lecture Card ───────────────────────────────────────
+// ─── Animated Lecture Card ───
 function AnimatedVideoCard({
   item,
   index,
-  onToggleWatched,
 }: {
   item: LectureItem;
   index: number;
-  onToggleWatched: (id: string, currentStatus: boolean) => void;
 }) {
   const anim = useRef(new Animated.Value(0)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
@@ -148,8 +80,8 @@ function AnimatedVideoCard({
     anim.setValue(0);
     Animated.timing(anim, {
       toValue: 1,
-      duration: 450,
-      delay: Math.min(index * 80, 400) + 200,
+      duration: 400,
+      delay: Math.min(index * 60, 300) + 100,
       easing: Easing.out(Easing.back(1.1)),
       useNativeDriver: true,
     }).start();
@@ -172,7 +104,7 @@ function AnimatedVideoCard({
         {
           opacity: anim,
           transform: [
-            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
+            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) },
             { scale: pressScale },
           ],
         },
@@ -185,48 +117,125 @@ function AnimatedVideoCard({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
       >
-        {/* Left side: Play thumbnail */}
-        <View style={styles.cardRow}>
-          <View style={[styles.cardThumb, isCompleted && styles.cardThumbCompleted]}>
-            <Ionicons
-              name={isCompleted ? "checkmark-done" : "play"}
-              size={isCompleted ? 24 : 26}
-              color={isCompleted ? C.white : C.stationDark}
-            />
+        {/* Status strip */}
+        <View style={[styles.cardStrip, { backgroundColor: isCompleted ? C.success : C.accent }]} />
+
+        <View style={styles.cardBody}>
+          <View style={styles.cardRow}>
+            {/* Play icon */}
+            <View style={[styles.cardThumb, isCompleted && styles.cardThumbCompleted]}>
+              <Ionicons
+                name={isCompleted ? "checkmark-done" : "play"}
+                size={isCompleted ? 20 : 22}
+                color={C.white}
+              />
+            </View>
+
+            {/* Info */}
+            <View style={styles.cardInfo}>
+              <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+              <View style={styles.cardMeta}>
+                <View style={styles.cardMetaPill}>
+                  <Ionicons name="book-outline" size={11} color={C.primary} />
+                  <Text style={styles.cardMetaPillText}>{item.subject}</Text>
+                </View>
+                <View style={styles.cardMetaItem}>
+                  <Ionicons name="time-outline" size={12} color={C.textSecondary} />
+                  <Text style={styles.cardMetaText}>{item.duration}</Text>
+                </View>
+              </View>
+            </View>
           </View>
 
-          {/* Right side: Info */}
-          <View style={styles.cardBody}>
-            <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-            <View style={styles.cardMeta}>
-              <View style={styles.cardMetaPill}>
-                <Text style={styles.cardMetaPillText}>{item.subject}</Text>
-              </View>
-              <View style={styles.cardMetaItem}>
-                <Ionicons name="time-outline" size={13} color={C.textGrayDark} />
-                <Text style={styles.cardMetaText}>{item.duration}</Text>
-              </View>
+          {/* Progress */}
+          <View style={styles.cardProgressRow}>
+            <View style={styles.cardProgressTrack}>
+              <View style={[
+                styles.cardProgressFill,
+                {
+                  width: `${item.progress}%`,
+                  backgroundColor: isCompleted ? C.success : C.accent,
+                }
+              ]} />
             </View>
-
-            {/* Progress */}
-            <View style={styles.cardProgressRow}>
-              <View style={styles.cardProgressTrack}>
-                <View style={[
-                  styles.cardProgressFill,
-                  {
-                    width: `${item.progress}%`,
-                    backgroundColor: isCompleted ? '#10B981' : C.gold,
-                  }
-                ]} />
-              </View>
-              <Text style={[styles.cardProgressText, isCompleted && { color: '#10B981' }]}>
-                {item.progress}%
-              </Text>
-            </View>
+            <Text style={[styles.cardProgressText, isCompleted && { color: C.success }]}>
+              {item.progress}%
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
+  );
+}
+
+// ─── Playlist Section ───
+function PlaylistSection({
+  playlist,
+  onToggle,
+  globalIndex,
+}: {
+  playlist: PlaylistGroup;
+  onToggle: () => void;
+  globalIndex: number;
+}) {
+  const completedCount = playlist.lectures.filter(l => l.watched || l.progress === 100).length;
+  const totalCount = playlist.lectures.length;
+  const allCompleted = completedCount === totalCount && totalCount > 0;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  return (
+    <View style={styles.playlistContainer}>
+      {/* Playlist header */}
+      <TouchableOpacity style={styles.playlistHeader} onPress={onToggle} activeOpacity={0.7}>
+        <View style={styles.playlistHeaderLeft}>
+          <Ionicons
+            name={playlist.isExpanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={C.textSecondary}
+          />
+        </View>
+
+        <View style={styles.playlistHeaderContent}>
+          <View style={styles.playlistTitleRow}>
+            <View style={[styles.playlistIcon, allCompleted && { backgroundColor: C.successSoft }]}>
+              <Ionicons
+                name={allCompleted ? "checkmark-done-circle" : "list"}
+                size={18}
+                color={allCompleted ? C.success : C.accent}
+              />
+            </View>
+            <View style={styles.playlistTitleWrap}>
+              <Text style={styles.playlistTitle} numberOfLines={1}>{playlist.name}</Text>
+              <Text style={styles.playlistSubtitle}>
+                {completedCount}/{totalCount} محاضرة مكتملة
+              </Text>
+            </View>
+          </View>
+
+          {/* Mini progress bar */}
+          <View style={styles.playlistProgressRow}>
+            <View style={styles.playlistProgressTrack}>
+              <View style={[
+                styles.playlistProgressFill,
+                { width: `${progressPercent}%`, backgroundColor: allCompleted ? C.success : C.accent },
+              ]} />
+            </View>
+            <Text style={[styles.playlistProgressText, allCompleted && { color: C.success }]}>
+              {progressPercent}%
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Expanded lectures */}
+      {playlist.isExpanded && (
+        <View style={styles.playlistLectures}>
+          {playlist.lectures.map((item, idx) => (
+            <AnimatedVideoCard key={item.id} item={item} index={globalIndex + idx} />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -236,22 +245,22 @@ function AnimatedVideoCard({
 export default function LecturesScreen() {
   const router = useRouter();
   const headerAnim = useRef(new Animated.Value(0)).current;
-  const filterAnim = useRef(new Animated.Value(0)).current;
-  const statsAnim = useRef(new Animated.Value(0)).current;
 
   const [videos, setVideos] = useState<LectureItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("الكل");
-  const [statusFilter, setStatusFilter] = useState("الكل");
+  const [viewMode, setViewMode] = useState<"playlists" | "all">("playlists");
+  const [expandedPlaylists, setExpandedPlaylists] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    Animated.stagger(150, [
-      Animated.timing(headerAnim, { toValue: 1, duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(filterAnim, { toValue: 1, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(statsAnim, { toValue: 1, duration: 400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-    ]).start();
-  }, [filterAnim, headerAnim, statsAnim]);
+    Animated.spring(headerAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 50,
+      useNativeDriver: true,
+    }).start();
+  }, [headerAnim]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -272,6 +281,7 @@ export default function LecturesScreen() {
               progress: normalizedProgress,
               createdAt: typeof data.createdAt === "string" ? data.createdAt : "",
               status: data.status || "active",
+              playlistName: data.playlistName || "",
             };
           })
           .filter(lec => lec.status === "accepted" || lec.status === "active")
@@ -284,6 +294,17 @@ export default function LecturesScreen() {
         setVideos(nextLectures);
         setLoadError("");
         setIsLoading(false);
+
+        // Auto-expand first playlist
+        const firstPlaylist = nextLectures.find(l => l.playlistName);
+        if (firstPlaylist && firstPlaylist.playlistName) {
+          setExpandedPlaylists(prev => {
+            if (Object.keys(prev).length === 0) {
+              return { [firstPlaylist.playlistName!]: true };
+            }
+            return prev;
+          });
+        }
       },
       (error) => {
         console.error("Error loading lectures:", error);
@@ -302,75 +323,109 @@ export default function LecturesScreen() {
     ...Array.from(new Set(videos.map((video) => video.subject))).filter((subject) => subject && subject !== "الكل"),
   ];
 
-  const toggleWatched = (id: string, currentStatus: boolean) => {
-    setVideos(prev => prev.map(v => {
-      if (v.id === id) {
-        return {
-          ...v,
-          watched: !currentStatus,
-          progress: !currentStatus ? 100 : 0,
-        };
-      }
-      return v;
-    }));
-  };
-
   const filteredVideos = videos.filter(v => {
     if (subjectFilter !== "الكل" && v.subject !== subjectFilter) return false;
-    if (statusFilter === "مكتمل" && v.progress !== 100) return false;
-    if (statusFilter === "قيد المشاهدة" && (v.progress === 0 || v.progress === 100)) return false;
-    if (statusFilter === "لم يبدأ" && v.progress > 0) return false;
     return true;
   });
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bgTop} />
+  // Group into playlists
+  const playlists: PlaylistGroup[] = (() => {
+    const groupMap: Record<string, LectureItem[]> = {};
+    const ungrouped: LectureItem[] = [];
 
-      {/* Top Dark Background — matches Home Page exactly */}
-      <View style={styles.topBgLayer}>
-        <HeaderDecorations />
-      </View>
+    filteredVideos.forEach(v => {
+      if (v.playlistName && v.playlistName !== 'محاضرات أخرى') {
+        if (!groupMap[v.playlistName]) groupMap[v.playlistName] = [];
+        groupMap[v.playlistName].push(v);
+      } else {
+        ungrouped.push(v);
+      }
+    });
+
+    const result: PlaylistGroup[] = Object.entries(groupMap).map(([name, lectures]) => ({
+      name,
+      lectures,
+      isExpanded: !!expandedPlaylists[name],
+    }));
+
+    if (ungrouped.length > 0) {
+      result.push({
+        name: 'محاضرات أخرى',
+        lectures: ungrouped,
+        isExpanded: !!expandedPlaylists['محاضرات أخرى'],
+      });
+    }
+
+    return result;
+  })();
+
+  const togglePlaylist = (name: string) => {
+    setExpandedPlaylists(prev => ({
+      ...prev,
+      [name]: !prev[name],
+    }));
+  };
+
+  const totalCount = videos.length;
+  const completedCount = videos.filter(v => v.progress === 100).length;
+  const inProgressCount = videos.filter(v => v.progress > 0 && v.progress < 100).length;
+
+  return (
+    <View style={styles.wrapper}>
+      <StatusBar barStyle="light-content" backgroundColor={C.topOverlay} />
+
+      {/* Background */}
+      <View style={styles.topBgLayer} />
+      <View style={styles.topBgGlow} />
 
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ─── Header ─── */}
+        <Animated.View style={[styles.header, {
+          opacity: headerAnim,
+          transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-15, 0] }) }],
+        }]}>
+          <TouchableOpacity style={styles.backBtn} activeOpacity={0.8} onPress={() => router.back()}>
+            <Ionicons name="arrow-forward" size={22} color={C.white} />
+          </TouchableOpacity>
 
-          {/* ─── Header ──────────────────────── */}
-          <Animated.View style={[styles.header, {
-            opacity: headerAnim,
-            transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) }],
-          }]}>
-            <View style={styles.headerLeft}>
-              <TouchableOpacity style={styles.backBtn} activeOpacity={0.8} onPress={() => router.back()}>
-                <Ionicons name={I18nManager.isRTL ? "chevron-forward" : "chevron-back"} size={22} color={C.textLight} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>محاضراتي</Text>
-              <Text style={styles.headerSub}>جميع الفيديوهات والتسجيلات</Text>
-            </View>
-            <View style={styles.placeholder} />
-          </Animated.View>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerSubtitle}>جميع الفيديوهات والتسجيلات</Text>
+            <Text style={styles.headerTitle}>محاضراتي</Text>
+          </View>
+        </Animated.View>
 
-          {/* ─── Dashboard Stats ─────────────────── */}
-          <Animated.View style={{
-            opacity: statsAnim,
-            transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-          }}>
-            <DashboardCard videos={videos} />
-          </Animated.View>
+        {/* ─── Stats Bar ─── */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{totalCount}</Text>
+            <Text style={styles.statLabel}>إجمالي</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCard}>
+            <Text style={[styles.statValue, { color: C.success }]}>{completedCount}</Text>
+            <Text style={styles.statLabel}>مكتمل</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCard}>
+            <Text style={[styles.statValue, { color: C.accent }]}>{inProgressCount}</Text>
+            <Text style={styles.statLabel}>قيد المشاهدة</Text>
+          </View>
+        </View>
 
-          {/* ─── Filters ──────────────────────── */}
-          <Animated.View style={{
-            opacity: filterAnim,
-            transform: [{ translateY: filterAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
-          }}>
-            {/* Subject filter */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+        {/* ─── Content ─── */}
+        <View style={styles.content}>
+          {/* Subject filter */}
+          <View style={{ height: 60, marginBottom: 5 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScroll}
+              style={[styles.filterScrollOuter, { flex: 1 }]}
+            >
               {subjects.map((sub) => (
                 <TouchableOpacity
                   key={sub}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                   style={[styles.filterPill, subjectFilter === sub && styles.filterPillActive]}
                   onPress={() => setSubjectFilter(sub)}
                 >
@@ -378,185 +433,256 @@ export default function LecturesScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-
-            {/* Status filter */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterScroll, { marginTop: 10 }]}>
-              {STATUSES.map((stat) => (
-                <TouchableOpacity
-                  key={stat}
-                  activeOpacity={0.8}
-                  style={[styles.filterPillAlt, statusFilter === stat && styles.filterPillAltActive]}
-                  onPress={() => setStatusFilter(stat)}
-                >
-                  <Text style={[styles.filterPillAltText, statusFilter === stat && styles.filterPillAltTextActive]}>{stat}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Animated.View>
-
-          {/* ─── Section Header ────────────────── */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>النتائج</Text>
-            <Text style={styles.sectionCount}>{filteredVideos.length} محاضرة</Text>
           </View>
 
-          {/* ─── Lecture List ──────────────────── */}
-          <View style={styles.listContainer}>
+          {/* View mode toggle */}
+          <View style={styles.viewModeRow}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name={viewMode === 'playlists' ? 'folder-open' : 'list'} size={16} color={C.textPrimary} />
+              <Text style={styles.sectionTitle}>
+                {viewMode === 'playlists' ? 'قوائم التشغيل' : 'كل المحاضرات'}
+              </Text>
+            </View>
+
+            <View style={styles.viewToggle}>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, viewMode === 'playlists' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('playlists')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="folder" size={14} color={viewMode === 'playlists' ? C.white : C.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, viewMode === 'all' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('all')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="list" size={14} color={viewMode === 'all' ? C.white : C.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ─── Content Body ─── */}
+          <ScrollView
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          >
             {isLoading ? (
               <View style={styles.emptyState}>
-                <ActivityIndicator size="large" color={C.stationDark} />
+                <ActivityIndicator size="large" color={C.primary} />
                 <Text style={styles.emptyText}>جاري تحميل المحاضرات...</Text>
               </View>
-            ) : null}
-
-            {!isLoading && loadError ? (
+            ) : loadError ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconWrap}>
-                  <Ionicons name="alert-circle-outline" size={40} color={C.redBadge} />
+                  <Ionicons name="alert-circle-outline" size={44} color={C.danger} />
                 </View>
                 <Text style={styles.emptyTitle}>حدث خطأ</Text>
                 <Text style={styles.emptyText}>{loadError}</Text>
               </View>
-            ) : null}
-
-            {!isLoading && !loadError && filteredVideos.length === 0 ? (
+            ) : filteredVideos.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconWrap}>
-                  <Ionicons name="film-outline" size={40} color={C.textGrayDark} />
+                  <Ionicons name="film-outline" size={44} color={C.textSecondary} />
                 </View>
                 <Text style={styles.emptyTitle}>لا توجد نتائج</Text>
                 <Text style={styles.emptyText}>لا توجد محاضرات تطابق الفلاتر المحددة</Text>
               </View>
+            ) : viewMode === 'playlists' ? (
+              // Playlist view
+              playlists.map((playlist, pIdx) => {
+                const globalIdx = playlists.slice(0, pIdx).reduce((sum, p) => sum + p.lectures.length, 0);
+                return (
+                  <PlaylistSection
+                    key={playlist.name}
+                    playlist={playlist}
+                    onToggle={() => togglePlaylist(playlist.name)}
+                    globalIndex={globalIdx}
+                  />
+                );
+              })
             ) : (
-              !isLoading && !loadError && filteredVideos.map((item, idx) => (
-                <AnimatedVideoCard key={`${item.id}`} item={item} index={idx} onToggleWatched={toggleWatched} />
+              // Flat list view
+              filteredVideos.map((item, idx) => (
+                <AnimatedVideoCard key={item.id} item={item} index={idx} />
               ))
             )}
-          </View>
 
-          <View style={{ height: 40 }} />
-        </ScrollView>
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
       </SafeAreaView>
     </View>
   );
 }
 
-// ═════════════════════════════════════════════════════════════════
-// STYLES — Directly aligned with Home Page design system
-// ═════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bgMain },
-
-  // Same top background layer as Home Page
+  wrapper: { flex: 1, backgroundColor: C.bgMain },
   topBgLayer: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 280,
-    backgroundColor: C.bgTop,
-    borderBottomLeftRadius: 50, borderBottomRightRadius: 50,
-    overflow: 'hidden',
+    position: 'absolute', top: 0, left: 0, right: 0, height: 320,
+    backgroundColor: C.topOverlay,
+    borderBottomLeftRadius: 40, borderBottomRightRadius: 40,
   },
-  decorCircle: { position: 'absolute' },
+  topBgGlow: {
+    position: 'absolute', top: -40, right: -20,
+    width: 220, height: 220, borderRadius: 110,
+    backgroundColor: C.topOverlaySoft, opacity: 0.55,
+  },
 
-  scrollContent: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 50 },
-
-  // Header — mirrors Home Page header style
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, direction: 'ltr', paddingHorizontal: 4 },
-  headerLeft: { justifyContent: 'center' },
+  // ─── Header ───
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 24, paddingTop: 14, paddingBottom: 12,
+  },
   backBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)',
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center', alignItems: 'center',
   },
-  headerCenter: { alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 24, fontWeight: '900', color: C.textLight, marginBottom: 2 },
-  headerSub: { fontSize: 12, color: '#97AEA9', fontWeight: '600' },
-  placeholder: { width: 44 },
+  headerTitleContainer: { alignItems: 'flex-end' },
+  headerSubtitle: { fontSize: 12, color: '#97AEA9', marginBottom: 3 },
+  headerTitle: { fontSize: 26, fontWeight: 'bold', color: C.white },
 
-  // Dashboard Card — matches Home Page hero
-  heroCard: {
-    backgroundColor: C.heroCard, borderRadius: 28, overflow: 'hidden', marginBottom: 20,
+  // ─── Stats ───
+  statsRow: {
+    flexDirection: 'row-reverse', alignItems: 'center',
+    marginHorizontal: 24,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20, paddingVertical: 14, paddingHorizontal: 8,
+    marginBottom: 16,
+  },
+  statCard: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: '900', color: C.white, marginBottom: 2 },
+  statLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  statDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.12)' },
+
+  // ─── Content ───
+  content: {
+    flex: 1, backgroundColor: C.bgMain,
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 24 },
-      android: { elevation: 8 },
-    }),
-  },
-  heroContent: { padding: 24 },
-  heroStatsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', direction: 'rtl' },
-  heroStatItem: { alignItems: 'center' },
-  heroStatValue: { fontSize: 26, fontWeight: '900', color: C.textLight, marginBottom: 2 },
-  heroStatLabel: { fontSize: 12, fontWeight: '600', color: C.textGrayLight },
-  heroStatDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.12)' },
-
-  // Filter Pills — clean, on light background
-  filterScroll: { paddingHorizontal: 4, gap: 8, direction: 'rtl', marginBottom: 6 },
-  filterPill: {
-    backgroundColor: C.white, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20,
-    borderWidth: 1.5, borderColor: '#E8EDEC',
-    ...Platform.select({
-      ios: { shadowColor: 'rgba(0,0,0,0.03)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6 },
-      android: { elevation: 1 },
-    }),
-  },
-  filterPillActive: { backgroundColor: C.stationDark, borderColor: C.stationDark },
-  filterPillText: { fontSize: 13, fontWeight: '700', color: C.textGrayDark },
-  filterPillTextActive: { color: C.white, fontWeight: '800' },
-
-  filterPillAlt: {
-    backgroundColor: C.bgMain, paddingHorizontal: 16, paddingVertical: 7, borderRadius: 16,
-    borderWidth: 1.5, borderColor: '#D9E0DE',
-  },
-  filterPillAltActive: { backgroundColor: C.gold, borderColor: C.gold },
-  filterPillAltText: { fontSize: 12, fontWeight: '600', color: C.textGrayDark },
-  filterPillAltTextActive: { color: C.bgTop, fontWeight: '800' },
-
-  // Section Header — matches Home Page
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 10, marginBottom: 16, paddingHorizontal: 6, direction: 'rtl',
-    backgroundColor: C.bgMain, borderRadius: 12, paddingVertical: 4
-  },
-  sectionTitle: { fontSize: 20, fontWeight: '900', color: C.textDark },
-  sectionCount: { fontSize: 13, fontWeight: '700', color: '#5A7A74' },
-
-  // Lecture Cards
-  listContainer: { gap: 12 },
-  cardOuter: { width: '100%' },
-  card: {
-    backgroundColor: C.white, borderRadius: 18, padding: 16, direction: 'rtl',
-    ...Platform.select({
-      ios: { shadowColor: 'rgba(0,0,0,0.06)', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 1, shadowRadius: 22 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 12 },
       android: { elevation: 4 },
     }),
   },
-  cardRow: { flexDirection: 'row', alignItems: 'center' },
+
+  // ─── Filter ───
+  filterScrollOuter: { marginTop: 18 },
+  filterScroll: { paddingHorizontal: 20, gap: 8, flexDirection: 'row-reverse', alignItems: 'center' },
+  filterPill: {
+    backgroundColor: C.surface, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12,
+    borderWidth: 1, borderColor: C.borderLight, height: 40, justifyContent: 'center'
+  },
+  filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
+  filterPillText: { fontSize: 13, fontWeight: '700', color: C.textSecondary },
+  filterPillTextActive: { color: C.white },
+
+  // ─── View Mode Toggle ───
+  viewModeRow: {
+    flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, marginTop: 16, marginBottom: 12,
+  },
+  sectionTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: C.textPrimary },
+  viewToggle: {
+    flexDirection: 'row-reverse',
+    backgroundColor: C.softGreen,
+    borderRadius: 10, padding: 3,
+  },
+  viewToggleBtn: {
+    width: 32, height: 28, borderRadius: 8,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  viewToggleBtnActive: { backgroundColor: C.primary },
+
+  // ─── Playlist Section ───
+  playlistContainer: {
+    marginBottom: 14,
+  },
+  playlistHeader: {
+    flexDirection: 'row-reverse', alignItems: 'center',
+    backgroundColor: C.surface, borderRadius: 18,
+    padding: 14,
+    borderWidth: 1, borderColor: C.borderLight,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 },
+      android: { elevation: 1 },
+    }),
+  },
+  playlistHeaderLeft: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: C.softGreen,
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 12,
+  },
+  playlistHeaderContent: { flex: 1 },
+  playlistTitleRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 8,
+  },
+  playlistIcon: {
+    width: 36, height: 36, borderRadius: 12,
+    backgroundColor: C.softGold,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  playlistTitleWrap: { flex: 1, alignItems: 'flex-end' },
+  playlistTitle: { fontSize: 15, fontWeight: '800', color: C.textPrimary },
+  playlistSubtitle: { fontSize: 11, color: C.textSecondary, fontWeight: '600', marginTop: 2 },
+  playlistProgressRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
+  },
+  playlistProgressTrack: { flex: 1, height: 4, backgroundColor: C.softGreen, borderRadius: 2, overflow: 'hidden' },
+  playlistProgressFill: { height: 4, borderRadius: 2 },
+  playlistProgressText: { fontSize: 11, fontWeight: '800', color: C.accent, width: 30 },
+  playlistLectures: {
+    marginTop: 8, marginRight: 12,
+    borderRightWidth: 2, borderRightColor: C.borderLight,
+    paddingRight: 12,
+  },
+
+  // ─── List ───
+  listContainer: { paddingHorizontal: 20, paddingBottom: 40 },
+
+  // ─── Cards ───
+  cardOuter: { width: '100%', marginBottom: 10 },
+  card: {
+    flexDirection: 'row-reverse',
+    backgroundColor: C.surface, borderRadius: 18, overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
+      android: { elevation: 2 },
+    }),
+  },
+  cardStrip: { width: 4 },
+  cardBody: { flex: 1, padding: 14 },
+  cardRow: { flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 10 },
   cardThumb: {
-    width: 56, height: 56, borderRadius: 16,
-    backgroundColor: '#F2F6F5',
-    justifyContent: 'center', alignItems: 'center', marginLeft: 14,
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: C.primarySoft,
+    justifyContent: 'center', alignItems: 'center', marginLeft: 12,
   },
-  cardThumbCompleted: { backgroundColor: '#10B981' },
-  cardBody: { flex: 1, justifyContent: 'center' },
-  cardTitle: { fontSize: 14, fontWeight: '800', color: C.textDark, lineHeight: 21, marginBottom: 6 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  cardThumbCompleted: { backgroundColor: C.success },
+  cardInfo: { flex: 1, alignItems: 'flex-end' },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: C.textPrimary, lineHeight: 20, marginBottom: 4, textAlign: 'right' },
+  cardMeta: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
   cardMetaPill: {
-    backgroundColor: '#EEF3F2', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10,
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 4,
+    backgroundColor: C.softGreen, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
   },
-  cardMetaPillText: { fontSize: 11, fontWeight: '700', color: '#174A42' },
-  cardMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  cardMetaText: { fontSize: 11, fontWeight: '600', color: C.textGrayDark },
+  cardMetaPillText: { fontSize: 10, fontWeight: '700', color: C.primary },
+  cardMetaItem: { flexDirection: 'row-reverse', alignItems: 'center', gap: 3 },
+  cardMetaText: { fontSize: 10, fontWeight: '600', color: C.textSecondary },
+  cardProgressRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  cardProgressTrack: { flex: 1, height: 4, backgroundColor: C.softGreen, borderRadius: 2, overflow: 'hidden' },
+  cardProgressFill: { height: 4, borderRadius: 2 },
+  cardProgressText: { fontSize: 11, fontWeight: '900', color: C.textPrimary, width: 30 },
 
-  // Card Progress — gold accent like Home Page
-  cardProgressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardProgressTrack: { flex: 1, height: 5, backgroundColor: '#EAEFEE', borderRadius: 3, overflow: 'hidden' },
-  cardProgressFill: { height: 5, borderRadius: 3 },
-  cardProgressText: { fontSize: 12, fontWeight: '900', color: C.textDark, width: 35, textAlign: 'left' },
-
-  // Empty State
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  // ─── Empty ───
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 8 },
   emptyIconWrap: {
-    width: 80, height: 80, borderRadius: 24, backgroundColor: '#F2F6F5',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 16,
+    width: 88, height: 88, borderRadius: 28, backgroundColor: C.softGreen,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 8,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: C.textDark, marginBottom: 6 },
-  emptyText: { fontSize: 13, color: C.textGrayDark, fontWeight: '600' },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: C.textPrimary },
+  emptyText: { fontSize: 13, color: C.textSecondary, fontWeight: '600' },
 });

@@ -4,25 +4,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Shared Data
     match /subjects/{subjectId} {
-      // Anyone can read subjects
       allow read: if true;
-      // Only authenticated users can write (You can later restrict this to admins only)
       allow write: if request.auth != null;
     }
 
     // Student Data
     match /students/{studentId} {
-      // Anyone can read for now (Used by dashboard)
-      // Later restrict reading to user themselves or admins:
-      // allow read: if request.auth != null && (request.auth.uid == studentId || request.auth.token.admin == true);
       allow read: if true;
-
-      // Users can only create/update their own student record
-      allow create: if true; // Allow dashboard testing
-      allow update: if request.auth != null && request.auth.uid == studentId;
-      
-      // Prevent deleting student records (admins only ideally)
-      allow delete: if false; 
+      allow write: if true;
     }
 
     // Teacher Data
@@ -33,22 +22,31 @@ service cloud.firestore {
 
     // Chats Data
     match /chats/{chatId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /chats/{chatId}/messages/{messageId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
+    }
+
+    // Groups Data
+    match /groups/{groupId} {
+      allow read, write: if true;
+      
+      match /group_messages/{messageId} {
+        allow read, write: if true;
+      }
     }
 
     // Quizzes Data
     match /quizzes/{quizId} {
       allow read: if true;
-      allow write: if true; // In production restrict to creators/admins
+      allow write: if true; 
     }
 
     // Lectures Data
     match /lectures/{lectureId} {
       allow read: if true;
-      allow write: if true; // In production restrict to creators/admins
+      allow write: if true; 
     }
 
     // Quiz Submissions Data

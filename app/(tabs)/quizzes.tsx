@@ -4,8 +4,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
-    Dimensions,
-    I18nManager,
+    Easing,
     Platform,
     ScrollView,
     StatusBar,
@@ -17,24 +16,22 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { db } from "../../firebase";
 
-const { width: SCREEN_W } = Dimensions.get("window");
-
-// Sync'd Premium Dark Emerald Palette from Home Page
 const C = {
-  bgDeep: '#061a15',
-  bgMid: '#0a2e25',
-  bgLight: '#0f4236',
-  white: '#FFFFFF',
-  glass: 'rgba(255, 255, 255, 0.08)',
-  glassBorder: 'rgba(255, 255, 255, 0.2)',
-  gold: '#D4A043',
-  textGray: '#808A87',
-  textBlack: '#1a1f1d',
-  surface: '#FFFFFF',
-  surfaceWarm: '#F5FAF8',
+  bgMain: "#F4F7F6",
+  topOverlay: "#0B2923",
+  topOverlaySoft: "#123B34",
+  primary: "#12453D",
+  primarySoft: "#2E5E55",
+  accent: "#E3A736",
+  white: "#FFFFFF",
+  textPrimary: "#10241F",
+  textSecondary: "#8A9E99",
+  borderLight: "#E8EDEC",
+  softGreen: "#EEF5F3",
+  softGold: "#FFF8E8",
+  success: "#10B981",
+  successSoft: "#ECFDF5",
 };
-
-// Removed mock data
 
 function AnimatedQuizCard({
   item,
@@ -48,7 +45,7 @@ function AnimatedQuizCard({
   useEffect(() => {
     Animated.spring(anim, {
       toValue: 1,
-      delay: 150 + index * 100,
+      delay: 100 + index * 80,
       friction: 7,
       tension: 50,
       useNativeDriver: true,
@@ -57,6 +54,7 @@ function AnimatedQuizCard({
 
   const router = useRouter();
   const isCompleted = item.status === "مكتمل";
+  const questionCount = item.questions?.length || 0;
 
   return (
     <Animated.View
@@ -68,52 +66,88 @@ function AnimatedQuizCard({
             {
               translateY: anim.interpolate({
                 inputRange: [0, 1],
-                outputRange: [30, 0],
+                outputRange: [24, 0],
               }),
             },
           ],
         },
       ]}
     >
-      <TouchableOpacity activeOpacity={0.8} style={styles.card} onPress={() => router.push('/quiz/' + item.id)}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        style={styles.card}
+        onPress={() => router.push(`/quiz/${item.id}` as any)}
+      >
+        {/* Status indicator strip */}
         <View
           style={[
-            styles.cardIconBox,
-            isCompleted
-              ? { backgroundColor: "rgba(22, 163, 74, 0.15)" } // Green tint
-              : { backgroundColor: C.surfaceWarm },
+            styles.cardStrip,
+            { backgroundColor: isCompleted ? C.success : C.accent },
           ]}
-        >
-          <Ionicons
-            name={isCompleted ? "checkmark-done-circle" : "document-text"}
-            size={32}
-            color={isCompleted ? "#16A34A" : C.gold}
-          />
-        </View>
+        />
 
-        <View style={styles.cardContent}>
-          <Text style={styles.cardCourse}>{item.course}</Text>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-
-          <View style={styles.cardMeta}>
-            <View style={styles.metaBadge}>
-              <Ionicons name="time-outline" size={14} color={C.textGray} />
-              <Text style={styles.metaText}>{item.duration}</Text>
+        <View style={styles.cardBody}>
+          {/* Top row: Icon + Title */}
+          <View style={styles.cardTopRow}>
+            <View
+              style={[
+                styles.cardIconBox,
+                isCompleted
+                  ? { backgroundColor: C.successSoft }
+                  : { backgroundColor: C.softGold },
+              ]}
+            >
+              <Ionicons
+                name={isCompleted ? "checkmark-done-circle" : "document-text"}
+                size={28}
+                color={isCompleted ? C.success : C.accent}
+              />
             </View>
-            <View style={styles.metaBadge}>
-              <Ionicons name="calendar-outline" size={14} color={C.textGray} />
-              <Text style={styles.metaText}>{item.date}</Text>
+
+            <View style={styles.cardTitleWrap}>
+              {item.course && (
+                <Text style={styles.cardCourse}>{item.course}</Text>
+              )}
+              <Text style={styles.cardTitle} numberOfLines={2}>
+                {item.title}
+              </Text>
             </View>
           </View>
 
-          {/* Status or Score Bar */}
-          <View style={styles.progressWrap}>
+          {/* Meta row */}
+          <View style={styles.cardMetaRow}>
+            {item.duration && (
+              <View style={styles.metaPill}>
+                <Ionicons name="time-outline" size={13} color={C.textSecondary} />
+                <Text style={styles.metaPillText}>{item.duration}</Text>
+              </View>
+            )}
+            {item.date && (
+              <View style={styles.metaPill}>
+                <Ionicons name="calendar-outline" size={13} color={C.textSecondary} />
+                <Text style={styles.metaPillText}>{item.date}</Text>
+              </View>
+            )}
+            {questionCount > 0 && (
+              <View style={styles.metaPill}>
+                <Ionicons name="help-circle-outline" size={13} color={C.textSecondary} />
+                <Text style={styles.metaPillText}>{questionCount} سؤال</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Bottom CTA */}
+          <View style={styles.cardFooter}>
             {isCompleted ? (
-              <Text style={[styles.progressLabel, { color: "#16A34A" }]}>
-                الدرجة: {item.score}
-              </Text>
+              <View style={styles.scoreBadge}>
+                <Ionicons name="ribbon" size={16} color={C.success} />
+                <Text style={styles.scoreText}>الدرجة: {item.score}</Text>
+              </View>
             ) : (
-              <Text style={[styles.progressLabel, { color: C.gold }]}>ابدأ الاختبار</Text>
+              <View style={styles.ctaBadge}>
+                <Text style={styles.ctaText}>ابدأ الاختبار</Text>
+                <Ionicons name="arrow-back" size={14} color={C.accent} />
+              </View>
             )}
           </View>
         </View>
@@ -122,19 +156,10 @@ function AnimatedQuizCard({
   );
 }
 
-// Elegant White Lines Decoration using geometric shapes and borders (from Home)
-const WhiteLinesDecor = () => (
-  <View style={StyleSheet.absoluteFill}>
-    <View style={styles.sweepCurve1} />
-    <View style={styles.sweepCurve2} />
-    <View style={styles.glowOrb1} />
-    <View style={styles.glowOrb2} />
-  </View>
-);
-
 export default function QuizzesScreen() {
   const router = useRouter();
   const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     try {
@@ -152,6 +177,7 @@ export default function QuizzesScreen() {
   }, []);
 
   const headerAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.spring(headerAnim, {
@@ -160,139 +186,426 @@ export default function QuizzesScreen() {
       tension: 50,
       useNativeDriver: true,
     }).start();
-  }, [headerAnim]);
+
+    // Subtle pulse on the stats count
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, [headerAnim, pulseAnim]);
+
+  const filteredQuizzes = quizzes.filter((q) => {
+    if (filter === "all") return true;
+    if (filter === "completed") return q.status === "مكتمل";
+    if (filter === "active") return q.status !== "مكتمل";
+    return true;
+  });
+
+  const filters = [
+    { id: "all", label: "الكل", icon: "apps" as const },
+    { id: "active", label: "متاح", icon: "play-circle" as const },
+    { id: "completed", label: "مكتمل", icon: "checkmark-circle" as const },
+  ];
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bgDeep} />
+    <View style={styles.wrapper}>
+      <StatusBar barStyle="light-content" backgroundColor={C.topOverlay} />
 
-      {/* Background layer */}
-      <View style={styles.bgGradientWrap}>
-        <View style={styles.bgLayerMain} />
-        <View style={styles.bgLayerTop} />
-        <WhiteLinesDecor />
-      </View>
+      {/* Background */}
+      <View style={styles.topBgLayer} />
+      <View style={styles.topBgGlow} />
 
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: headerAnim,
+              transform: [
+                {
+                  translateY: headerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-15, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
         >
-          {/* Header */}
-          <Animated.View
-            style={[
-              styles.header,
-              {
-                opacity: headerAnim,
-                transform: [
-                  {
-                    translateY: headerAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [-20, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
+          <TouchableOpacity
+            style={styles.backBtn}
+            activeOpacity={0.8}
+            onPress={() => router.back()}
           >
-            <TouchableOpacity
-              style={styles.backBtn}
-              activeOpacity={0.8}
-              onPress={() => router.back()}
-            >
-              <Ionicons
-                name={I18nManager.isRTL ? "chevron-forward" : "chevron-back"}
-                size={26}
-                color={C.white}
-              />
-            </TouchableOpacity>
+            <Ionicons name="arrow-forward" size={22} color={C.white} />
+          </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>كوزاتي واختباراتي</Text>
-            <View style={styles.placeholder} />
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerSubtitle}>تقييم المعرفة</Text>
+            <Text style={styles.headerTitle}>الاختبارات</Text>
+          </View>
+        </Animated.View>
+
+        {/* Quick Stats */}
+        <View style={styles.statsRow}>
+          <Animated.View style={[styles.statCard, { transform: [{ scale: pulseAnim }] }]}>
+            <Text style={styles.statValue}>{quizzes.length}</Text>
+            <Text style={styles.statLabel}>إجمالي</Text>
           </Animated.View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCard}>
+            <Text style={[styles.statValue, { color: C.success }]}>
+              {quizzes.filter((q) => q.status === "مكتمل").length}
+            </Text>
+            <Text style={styles.statLabel}>مكتمل</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCard}>
+            <Text style={[styles.statValue, { color: C.accent }]}>
+              {quizzes.filter((q) => q.status !== "مكتمل").length}
+            </Text>
+            <Text style={styles.statLabel}>متاح</Text>
+          </View>
+        </View>
 
-          {/* Filters/Tabs */}
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Filters */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filtersContent}
             style={styles.filtersScroll}
           >
-            <TouchableOpacity style={[styles.filterPill, styles.filterPillActive]}>
-              <Text style={[styles.filterPillText, styles.filterPillTextActive]}>الكل</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.filterPill}>
-              <Text style={styles.filterPillText}>مستمر</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.filterPill}>
-              <Text style={styles.filterPillText}>مكتمل</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.filterPill}>
-              <Text style={styles.filterPillText}>تم الحفظ</Text>
-            </TouchableOpacity>
+            {filters.map((f) => (
+              <TouchableOpacity
+                key={f.id}
+                style={[
+                  styles.filterPill,
+                  filter === f.id && styles.filterPillActive,
+                ]}
+                onPress={() => setFilter(f.id)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={f.icon}
+                  size={15}
+                  color={filter === f.id ? C.white : C.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filter === f.id && styles.filterPillTextActive,
+                  ]}
+                >
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
 
-          {/* Lectures List */}
-          <View style={styles.listContainer}>
-            {quizzes.map((item, idx) => (
-              <AnimatedQuizCard key={item.id} item={item} index={idx} />
-            ))}
-          </View>
-        </ScrollView>
+          {/* Quiz list */}
+          <ScrollView
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredQuizzes.length > 0 ? (
+              filteredQuizzes.map((item, idx) => (
+                <AnimatedQuizCard key={item.id} item={item} index={idx} />
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={48}
+                    color={C.textSecondary}
+                  />
+                </View>
+                <Text style={styles.emptyTitle}>لا توجد اختبارات</Text>
+                <Text style={styles.emptyText}>
+                  لا توجد اختبارات متاحة حالياً
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </View>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bgDeep },
-  
-  bgGradientWrap: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-  },
-  bgLayerMain: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: C.bgMid,
-  },
-  bgLayerTop: {
-    position: 'absolute',
+  wrapper: { flex: 1, backgroundColor: C.bgMain },
+  topBgLayer: {
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: '60%',
-    backgroundColor: C.bgDeep,
-    borderBottomLeftRadius: 180,
-    borderBottomRightRadius: 80,
+    height: 320,
+    backgroundColor: C.topOverlay,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
-  sweepCurve1: { position: 'absolute', top: -100, right: -50, width: 400, height: 400, borderRadius: 200, borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.1)', transform: [{ scaleX: 1.5 }, { rotate: '30deg' }] },
-  sweepCurve2: { position: 'absolute', bottom: -150, left: -100, width: 500, height: 500, borderRadius: 250, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', transform: [{ scaleY: 1.3 }, { rotate: '45deg' }] },
-  glowOrb1: { position: 'absolute', top: '15%', right: '5%', width: 250, height: 250, borderRadius: 125, backgroundColor: C.bgLight, opacity: 0.8, transform: [{ scale: 1.5 }] },
-  glowOrb2: { position: 'absolute', bottom: '10%', left: '-10%', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(20, 89, 79, 0.4)', opacity: 0.6 },
+  topBgGlow: {
+    position: "absolute",
+    top: -40,
+    right: -20,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: C.topOverlaySoft,
+    opacity: 0.55,
+  },
 
-  scrollContent: { paddingTop: 12, paddingBottom: 50 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 25, direction: "rtl" },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.glass, borderWidth: 1, borderColor: C.glassBorder, justifyContent: "center", alignItems: "center" },
-  headerTitle: { fontSize: 22, fontWeight: "800", color: C.white, letterSpacing: 0.5 },
-  placeholder: { width: 44 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitleContainer: {
+    alignItems: "flex-end",
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: "#97AEA9",
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: C.white,
+  },
 
-  filtersScroll: { marginBottom: 20 },
-  filtersContent: { paddingHorizontal: 20, gap: 12, direction: "rtl", flexDirection: "row" },
-  filterPill: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: C.glass, borderWidth: 1, borderColor: C.glassBorder },
-  filterPillActive: { backgroundColor: C.white },
-  filterPillText: { fontSize: 14, fontWeight: "700", color: C.white },
-  filterPillTextActive: { color: C.textBlack },
+  statsRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    marginHorizontal: 24,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: C.white,
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.6)",
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
 
-  listContainer: { paddingHorizontal: 20, gap: 16 },
-  cardOuter: { width: "100%" },
-  card: { flexDirection: "row", backgroundColor: C.surface, borderRadius: 24, padding: 16, direction: "rtl", ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 15 }, android: { elevation: 6 }, default: { shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 15 }}) },
-  cardIconBox: { width: 70, height: 70, borderRadius: 20, justifyContent: "center", alignItems: "center", marginLeft: 16 },
-  cardContent: { flex: 1, justifyContent: "center" },
-  cardCourse: { fontSize: 12, fontWeight: "800", color: C.gold, marginBottom: 4 },
-  cardTitle: { fontSize: 16, fontWeight: "800", color: C.textBlack, marginBottom: 8 },
-  cardMeta: { flexDirection: "row", gap: 12, marginBottom: 12 },
-  metaBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
-  metaText: { fontSize: 12, color: C.textGray, fontWeight: "600" },
-  progressWrap: { flexDirection: "row", alignItems: "center", direction: "rtl" },
-  progressLabel: { fontSize: 13, fontWeight: "800", marginRight: 12 },
+  content: {
+    flex: 1,
+    backgroundColor: C.bgMain,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+
+  filtersScroll: { marginTop: 20 },
+  filtersContent: {
+    paddingHorizontal: 20,
+    gap: 10,
+    flexDirection: "row-reverse",
+  },
+  filterPill: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.borderLight,
+  },
+  filterPillActive: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  filterPillText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.textSecondary,
+  },
+  filterPillTextActive: {
+    color: C.white,
+  },
+
+  listContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  cardOuter: {
+    width: "100%",
+    marginBottom: 14,
+  },
+  card: {
+    flexDirection: "row-reverse",
+    backgroundColor: C.white,
+    borderRadius: 20,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  cardStrip: {
+    width: 5,
+  },
+  cardBody: {
+    flex: 1,
+    padding: 16,
+  },
+  cardTopRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 12,
+  },
+  cardIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardTitleWrap: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  cardCourse: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: C.accent,
+    marginBottom: 3,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.textPrimary,
+    textAlign: "right",
+    lineHeight: 22,
+  },
+  cardMetaRow: {
+    flexDirection: "row-reverse",
+    gap: 8,
+    marginBottom: 12,
+  },
+  metaPill: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: C.softGreen,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  metaPillText: {
+    fontSize: 11,
+    color: C.textSecondary,
+    fontWeight: "600",
+  },
+  cardFooter: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: C.borderLight,
+    paddingTop: 10,
+  },
+  scoreBadge: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: C.successSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  scoreText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: C.success,
+  },
+  ctaBadge: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: C.softGold,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  ctaText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: C.accent,
+  },
+
+  emptyContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 60,
+    gap: 10,
+  },
+  emptyIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 32,
+    backgroundColor: C.softGreen,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: C.textPrimary,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: C.textSecondary,
+    textAlign: "center",
+  },
 });

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "616512386880",
+    "project_id": "marpha-app-58291",
+    "storage_bucket": "marpha-app-58291.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:616512386880:android:76c6e4b42ce6cc067aaca5",
+        "android_client_info": {
+          "package_name": "marpha.mh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBE56y_bsuCL1hhtYIzumQY2v_t3E-TbZI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

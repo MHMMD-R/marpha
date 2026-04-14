@@ -3,22 +3,30 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../../firebase';
 
 const C = {
-  bgDeep: '#061a15', bgMid: '#0a2e25', bgLight: '#0f4236', bgMain: '#F4F7F6',
-  white: '#FFFFFF', glass: 'rgba(255, 255, 255, 0.08)', glassBorder: 'rgba(255, 255, 255, 0.2)',
-  gold: '#D4A043', textGray: '#808A87', textBlack: '#1a1f1d', surface: '#FFFFFF',
-  redBadge: '#FF3B30', success: '#10B981'
+  bgMain: '#F4F7F6',
+  topOverlay: '#0B2923',
+  topOverlaySoft: '#123B34',
+  primary: '#12453D',
+  primarySoft: '#2E5E55',
+  accent: '#E3A736',
+  white: '#FFFFFF',
+  textPrimary: '#10241F',
+  textSecondary: '#8A9E99',
+  borderLight: '#E8EDEC',
+  softGreen: '#EEF5F3',
+  softGold: '#FFF8E8',
+  success: '#10B981',
+  successSoft: '#ECFDF5',
+  danger: '#FF3B30',
 };
 
-
-
-const DUMMY_API_BASE = Platform.OS === 'web' && typeof window !== 'undefined'
-  ? `${window.location.protocol}//${window.location.hostname}:5173`
-  : 'http://192.168.68.110:5173';
+// Use the production Cloudflare worker URL to upload files independently of the dashboard
+const DUMMY_API_BASE = 'https://marpha-uploader.marpha.workers.dev';
 
 export default function TakeQuizScreen() {
   const { id } = useLocalSearchParams();
@@ -28,15 +36,15 @@ export default function TakeQuizScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [answers, setAnswers] = useState<{ [qIdx: number]: string }>({});
   const [submission, setSubmission] = useState<any>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
     async function load() {
-      if (!id) return;
       try {
-        const docRef = doc(db, 'quizzes', id as string);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setQuiz({ id: docSnap.id, ...docSnap.data() });
+        if (!id) return;
+        const docSnap = await getDoc(doc(db, 'quizzes', id as string));
+        if (docSnap.exists()) { setQuiz({ id: docSnap.id, ...docSnap.data() });
           
           if (auth.currentUser) {
             const subQ = query(
@@ -126,122 +134,519 @@ export default function TakeQuizScreen() {
     }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={C.gold} /></View>;
+  if (loading) return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={C.accent} />
+      <Text style={styles.loadingText}>جاري تحميل الاختبار...</Text>
+    </View>
+  );
   if (!quiz) return null;
 
+  const totalQuestions = quiz.questions?.length || 0;
+  const answeredCount = Object.keys(answers).filter((k) => answers[parseInt(k)]).length;
+
+  // ─── Already Submitted View ───
   if (submission && !isSubmitting) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}> 
-            <Ionicons name="arrow-forward" size={24} color={C.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{quiz?.title || 'الاختبار'}</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <ScrollView contentContainerStyle={{ padding: 24, flexGrow: 1, justifyContent: 'center' }}>
-          <View style={{ backgroundColor: C.surface, borderRadius: 24, padding: 32, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 4 }}>
-            <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: '#ECFDF5', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
-              <Ionicons name="checkmark-circle" size={60} color={C.success || '#10B981'} />
-            </View>
-            <Text style={{ fontSize: 26, fontWeight: '900', color: C.textBlack, marginBottom: 12 }}>تم التسليم مسبقاً</Text>
-            <Text style={{ fontSize: 16, color: C.textGray, textAlign: 'center', marginBottom: 32, lineHeight: 24 }}>
-              لقد قمت بتسليم هذا الاختبار بالفعل. شكراً لك!
-            </Text>
+      <View style={styles.wrapper}>
+        <View style={styles.topBgLayer} />
+        <View style={styles.topBgGlow} />
 
-            <View style={{ width: '100%', backgroundColor: '#F5FAF8', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 32 }}>
-              <Text style={{ fontSize: 16, color: C.textGray, marginBottom: 8, fontWeight: 'bold' }}>نتيجة الاختبار</Text>
-              {submission.graded ? (
-                <Text style={{ fontSize: 36, color: C.gold, fontWeight: '900' }}>
-                  {submission.score}
-                </Text>
-              ) : (
-                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <Ionicons name="time-outline" size={20} color={C.textGray} />
-                  <Text style={{ fontSize: 16, color: C.textGray, fontWeight: '600' }}>
-                    بانتظار تصحيح المعلم...
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity style={[styles.submitBtn, { width: '100%', backgroundColor: C.bgDeep, shadowColor: C.bgDeep, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 12 }]} onPress={() => router.back()}>
-              <Text style={styles.submitText}>العودة للخلف</Text>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+              <Ionicons name="arrow-forward" size={22} color={C.white} />
             </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerSubtitle}>نتيجة الاختبار</Text>
+              <Text style={styles.headerTitle} numberOfLines={1}>{quiz?.title || 'الاختبار'}</Text>
+            </View>
           </View>
-        </ScrollView>
-      </SafeAreaView>
+
+          <View style={styles.content}>
+            <ScrollView contentContainerStyle={{ padding: 24, flexGrow: 1, justifyContent: 'center' }}>
+              <View style={styles.resultCard}>
+                {/* Success icon */}
+                <View style={styles.resultIconCircle}>
+                  <Ionicons name="checkmark-circle" size={56} color={C.success} />
+                </View>
+
+                <Text style={styles.resultTitle}>تم التسليم مسبقاً</Text>
+                <Text style={styles.resultSubtext}>
+                  لقد قمت بتسليم هذا الاختبار بالفعل. شكراً لك!
+                </Text>
+
+                {/* Score display */}
+                <View style={styles.resultScoreBox}>
+                  <Text style={styles.resultScoreLabel}>نتيجة الاختبار</Text>
+                  {submission.graded ? (
+                    <Text style={styles.resultScoreValue}>{submission.score}</Text>
+                  ) : (
+                    <View style={styles.resultPendingRow}>
+                      <Ionicons name="time-outline" size={20} color={C.textSecondary} />
+                      <Text style={styles.resultPendingText}>بانتظار تصحيح المعلم...</Text>
+                    </View>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.resultBackBtn}
+                  onPress={() => router.back()}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-back" size={18} color={C.white} />
+                  <Text style={styles.resultBackBtnText}>العودة للاختبارات</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </View>
     );
   }
 
+  // ─── Quiz Taking View ───
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-forward" size={24} color={C.white} />
-        </TouchableOpacity>        <Text style={styles.headerTitle}>{quiz?.title || 'الاختبار'}</Text>
-        <View style={{ width: 40 }} />
-      </View>
-      
-      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
-        {quiz.questions?.map((q: any, i: number) => (
-          <View key={i} style={styles.questionCard}>
-            <Text style={styles.questionTitle}>{q.text}</Text>
-            {q.imageUrl ? (
-              <Image source={{ uri: q.imageUrl }} style={styles.qImg} contentFit="cover" />
-            ) : null}
-            <View style={styles.answerSection}>
-              <Text style={styles.ansLabel}>إجابتك:</Text>
-              <TouchableOpacity style={styles.pickImgBtn} onPress={() => pickImage(i)}>
-                {answers[i] ? (
-                  <Image source={{ uri: answers[i] }} style={styles.aImg} contentFit="cover" />
-                ) : (
-                  <View style={styles.imgPlaceholder}>
-                    <Ionicons name="camera" size={32} color="#ccc" />
-                    <Text style={styles.pickText}>أضف صورة للإجابة</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
+    <View style={styles.wrapper}>
+      <View style={styles.topBgLayer} />
+      <View style={styles.topBgGlow} />
+
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+            <Ionicons name="arrow-forward" size={22} color={C.white} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerSubtitle}>
+              {answeredCount}/{totalQuestions} تمت الإجابة
+            </Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{quiz?.title || 'الاختبار'}</Text>
           </View>
-        ))}
-        
-        <TouchableOpacity style={styles.submitBtn} onPress={submitQuiz} disabled={isSubmitting}>
-          {isSubmitting ? (
-            <ActivityIndicator color={C.white} />
-          ) : (
-            <Text style={styles.submitText}>تسليم الاختبار</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+        </View>
+
+        {/* Progress bar */}
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBarTrack}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: totalQuestions > 0 ? `${(answeredCount / totalQuestions) * 100}%` : '0%' },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0}%
+          </Text>
+        </View>
+
+        {/* Content */}
+        <View style={styles.content}>
+          <ScrollView
+            contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {quiz.questions?.map((q: any, i: number) => (
+              <View key={i} style={styles.questionCard}>
+                {/* Question number badge */}
+                <View style={styles.questionNumberRow}>
+                  <View style={styles.questionNumberBadge}>
+                    <Text style={styles.questionNumberText}>{i + 1}</Text>
+                  </View>
+                  <Text style={styles.questionLabel}>السؤال {i + 1} من {totalQuestions}</Text>
+                </View>
+
+                {/* Question text */}
+                {q.text && <Text style={styles.questionTitle}>{q.text}</Text>}
+
+                {/* Question image */}
+                {q.imageUrl || q.questionImage ? (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => setFullScreenImage(q.imageUrl || q.questionImage)}
+                    style={styles.questionImageWrap}
+                  >
+                    <Image
+                      source={{ uri: q.imageUrl || q.questionImage }}
+                      style={styles.questionImage}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.zoomBadge}>
+                      <Ionicons name="expand" size={14} color={C.white} />
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* Answer section */}
+                <View style={styles.answerSection}>
+                  <View style={styles.answerLabelRow}>
+                    <Ionicons name="camera" size={16} color={C.primary} />
+                    <Text style={styles.ansLabel}>إجابتك:</Text>
+                  </View>
+
+                  {answers[i] ? (
+                    <View style={styles.answerImageContainer}>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={{ flex: 1 }}
+                        onPress={() => setFullScreenImage(answers[i])}
+                      >
+                        <Image source={{ uri: answers[i] }} style={styles.answerImage} resizeMode="cover" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.changeImageBtn}
+                        onPress={() => pickImage(i)}
+                      >
+                        <Ionicons name="camera-reverse" size={20} color={C.white} />
+                      </TouchableOpacity>
+                      {/* Success check */}
+                      <View style={styles.answerCheckBadge}>
+                        <Ionicons name="checkmark-circle" size={22} color={C.success} />
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.pickImageBtn} onPress={() => pickImage(i)} activeOpacity={0.7}>
+                      <View style={styles.pickImageIconCircle}>
+                        <Ionicons name="cloud-upload-outline" size={28} color={C.primary} />
+                      </View>
+                      <Text style={styles.pickImageTitle}>أضف صورة للإجابة</Text>
+                      <Text style={styles.pickImageHint}>اضغط لاختيار صورة من معرضك</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Sticky submit button */}
+          <View style={styles.submitContainer}>
+            <TouchableOpacity
+              style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              {isSubmitting ? (
+                <View style={styles.submitLoadingRow}>
+                  <ActivityIndicator color={C.white} size="small" />
+                  <Text style={styles.submitText}>جاري رفع الإجابات...</Text>
+                </View>
+              ) : (
+                <View style={styles.submitInnerRow}>
+                  <Ionicons name="paper-plane" size={20} color={C.white} />
+                  <Text style={styles.submitText}>تسليم الاختبار</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+
+      {/* Fullscreen image modal */}
+      <Modal visible={!!fullScreenImage} transparent={true} animationType="fade" onRequestClose={() => setFullScreenImage(null)}>
+        <View style={styles.fullscreenOverlay}>
+          <TouchableOpacity style={styles.fullscreenClose} onPress={() => setFullScreenImage(null)}>
+            <View style={styles.fullscreenCloseCircle}>
+              <Ionicons name="close" size={24} color={C.white} />
+            </View>
+          </TouchableOpacity>
+          <Image source={{ uri: fullScreenImage || '' }} style={styles.fullscreenImage} resizeMode="contain" />
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: C.bgLight },
-  header: {
-    height: 100,
-    backgroundColor: C.textBlack,
-    flexDirection: 'row-reverse',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+  wrapper: { flex: 1, backgroundColor: C.bgMain },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: C.bgMain,
+    gap: 12,
   },
+  loadingText: { fontSize: 14, color: C.textSecondary },
+  topBgLayer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 240,
+    backgroundColor: C.topOverlay,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+  },
+  topBgGlow: {
+    position: 'absolute',
+    top: -40, right: -20,
+    width: 220, height: 220, borderRadius: 110,
+    backgroundColor: C.topOverlaySoft,
+    opacity: 0.55,
+  },
+
+  // ─── Header ───
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  headerTitleContainer: { alignItems: 'flex-end', flex: 1, marginRight: 16 },
+  headerSubtitle: { fontSize: 12, color: '#97AEA9', marginBottom: 3 },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: C.white },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },  questionCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 20, elevation: 2 },
-  questionTitle: { fontSize: 18, fontWeight: 'bold', color: C.textBlack, marginBottom: 12, textAlign: 'right' },
-  qImg: { width: '100%', height: 200, borderRadius: 12, backgroundColor: '#eee', marginBottom: 16 },
-  answerSection: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 16 },
-  ansLabel: { fontSize: 16, fontWeight: 'bold', color: C.textBlack, marginBottom: 8, textAlign: 'right' },
-  pickImgBtn: { width: '100%', height: 150, borderRadius: 12, borderWidth: 1, borderColor: '#ccc', borderStyle: 'dashed', overflow: 'hidden' },
-  imgPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fafafa' },
-  pickText: { color: C.textGray, marginTop: 8 },
-  aImg: { width: '100%', height: '100%' },
-  submitBtn: { backgroundColor: C.gold, padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 10 },
-  submitText: { fontSize: 18, fontWeight: 'bold', color: C.white }
+
+  // ─── Progress Bar ───
+  progressBarContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    gap: 10,
+    marginBottom: 16,
+  },
+  progressBarTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 6,
+    backgroundColor: C.accent,
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: C.accent,
+  },
+
+  // ─── Content ───
+  content: {
+    flex: 1,
+    backgroundColor: C.bgMain,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 12 },
+      android: { elevation: 4 },
+    }),
+  },
+
+  // ─── Question Card ───
+  questionCard: {
+    backgroundColor: C.white,
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 18,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
+      android: { elevation: 3 },
+    }),
+  },
+  questionNumberRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  questionNumberBadge: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: C.primary,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  questionNumberText: {
+    fontSize: 14, fontWeight: '900', color: C.white,
+  },
+  questionLabel: {
+    fontSize: 13, fontWeight: '700', color: C.textSecondary,
+  },
+  questionTitle: {
+    fontSize: 17, fontWeight: 'bold', color: C.textPrimary,
+    marginBottom: 14, textAlign: 'right', lineHeight: 26,
+  },
+  questionImageWrap: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
+    position: 'relative',
+    backgroundColor: C.softGreen,
+  },
+  questionImage: {
+    width: '100%', height: 200, borderRadius: 16,
+  },
+  zoomBadge: {
+    position: 'absolute', bottom: 10, left: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 30, height: 30, borderRadius: 10,
+    justifyContent: 'center', alignItems: 'center',
+  },
+
+  // ─── Answer Section ───
+  answerSection: {
+    borderTopWidth: 1,
+    borderTopColor: C.borderLight,
+    paddingTop: 16,
+  },
+  answerLabelRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  ansLabel: {
+    fontSize: 15, fontWeight: 'bold', color: C.textPrimary,
+  },
+  answerImageContainer: {
+    width: '100%', height: 180, borderRadius: 16,
+    overflow: 'hidden', position: 'relative',
+    borderWidth: 2, borderColor: C.success,
+    backgroundColor: C.softGreen,
+  },
+  answerImage: { width: '100%', height: '100%' },
+  changeImageBtn: {
+    position: 'absolute', top: 10, right: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 8, borderRadius: 12,
+  },
+  answerCheckBadge: {
+    position: 'absolute', bottom: 10, left: 10,
+    backgroundColor: C.white,
+    borderRadius: 12, padding: 2,
+  },
+  pickImageBtn: {
+    width: '100%', height: 150, borderRadius: 16,
+    borderWidth: 2, borderColor: C.borderLight, borderStyle: 'dashed',
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#FAFBFA',
+  },
+  pickImageIconCircle: {
+    width: 52, height: 52, borderRadius: 16,
+    backgroundColor: C.softGreen,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 8,
+  },
+  pickImageTitle: {
+    fontSize: 14, fontWeight: '700', color: C.textPrimary, marginBottom: 3,
+  },
+  pickImageHint: {
+    fontSize: 11, color: C.textSecondary,
+  },
+
+  // ─── Submit ───
+  submitContainer: {
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    backgroundColor: C.white,
+    borderTopWidth: 1,
+    borderTopColor: C.borderLight,
+  },
+  submitBtn: {
+    backgroundColor: C.accent,
+    padding: 16, borderRadius: 16,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: { shadowColor: C.accent, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12 },
+      android: { elevation: 6 },
+    }),
+  },
+  submitInnerRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  submitLoadingRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+  },
+  submitText: { fontSize: 17, fontWeight: 'bold', color: C.white },
+
+  // ─── Already Submitted Result ───
+  resultCard: {
+    backgroundColor: C.white,
+    borderRadius: 28,
+    padding: 32,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.08, shadowRadius: 20 },
+      android: { elevation: 5 },
+    }),
+  },
+  resultIconCircle: {
+    width: 100, height: 100, borderRadius: 34,
+    backgroundColor: C.successSoft,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20,
+  },
+  resultTitle: {
+    fontSize: 24, fontWeight: '900', color: C.textPrimary, marginBottom: 8,
+  },
+  resultSubtext: {
+    fontSize: 15, color: C.textSecondary, textAlign: 'center', marginBottom: 28, lineHeight: 24,
+  },
+  resultScoreBox: {
+    width: '100%',
+    backgroundColor: C.softGreen,
+    borderRadius: 18, padding: 22,
+    alignItems: 'center',
+    borderWidth: 1, borderColor: C.borderLight,
+    marginBottom: 28,
+  },
+  resultScoreLabel: {
+    fontSize: 14, color: C.textSecondary, marginBottom: 8, fontWeight: '700',
+  },
+  resultScoreValue: {
+    fontSize: 36, color: C.accent, fontWeight: '900',
+  },
+  resultPendingRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginTop: 4,
+  },
+  resultPendingText: {
+    fontSize: 15, color: C.textSecondary, fontWeight: '600',
+  },
+  resultBackBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: C.primary,
+    paddingHorizontal: 28, paddingVertical: 14,
+    borderRadius: 14,
+    width: '100%',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12 },
+      android: { elevation: 4 },
+    }),
+  },
+  resultBackBtnText: {
+    fontSize: 16, fontWeight: 'bold', color: C.white,
+  },
+
+  // ─── Fullscreen Modal ───
+  fullscreenOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenClose: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 56 : 24,
+    right: 20, zIndex: 10,
+  },
+  fullscreenCloseCircle: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  fullscreenImage: { width: '100%', height: '80%' },
 });

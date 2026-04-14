@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Camera, CameraView } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -23,6 +25,46 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+
+  const startScanning = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    setHasPermission(status === 'granted');
+    if (status === 'granted') {
+      setIsScanning(true);
+    } else {
+      Alert.alert('الصلاحيات', 'لا توجد صلاحية للوصول إلى الكاميرا');
+    }
+  };
+
+  const handleBarcodeScanned = async ({ data }: { data: string }) => {
+    setIsScanning(false);
+    try {
+      const parts = data.split('|');
+      if (parts.length >= 2) {
+        const decodedEmail = parts[0];
+        const decodedPassword = parts[1];
+        setEmail(decodedEmail);
+        setPassword(decodedPassword);
+        setIsLoading(true);
+        const userCredential = await signInWithEmailAndPassword(auth, decodedEmail, decodedPassword);
+        const user = userCredential.user;
+        const teacherDoc = await getDoc(doc(db, 'teachers', user.uid));
+        if (teacherDoc.exists()) {
+          router.replace('/teacher_home');
+        } else {
+          router.replace('/(tabs)');
+        }
+      } else {
+        Alert.alert('خطأ', 'تنسيق الباركود غير صالح');
+      }
+    } catch (err: any) {
+      Alert.alert('فشل تسجيل الدخول', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAuth = async () => {
     if (!email || !password) {
@@ -59,6 +101,7 @@ export default function LoginScreen() {
           uid: user.uid,
           name: name,
           email: email,
+          password: password, // For barcode sign-in functionality
           subject: "عام",
           progress: 0,
           status: "active",
@@ -75,16 +118,61 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
       <View style={styles.topBgLayer} />
-      
+
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+        {isScanning ? (
+          <View style={[StyleSheet.absoluteFillObject, { zIndex: 99, backgroundColor: '#000' }]}>
+            <CameraView 
+              style={StyleSheet.absoluteFillObject}
+              facing="back"
+              onBarcodeScanned={handleBarcodeScanned}
+            />
+            
+            {/* Dark Overlay with Transparent Square Cutout */}
+            <View style={StyleSheet.absoluteFillObject}>
+              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+              <View style={{ flexDirection: 'row', height: 260 }}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+                <View style={{ width: 260, backgroundColor: 'transparent' }}>
+                  {/* Decorative Corners */}
+                  <View style={[styles.corner, { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 16 }]} />
+                  <View style={[styles.corner, { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 16 }]} />
+                  <View style={[styles.corner, { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 16 }]} />
+                  <View style={[styles.corner, { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 16 }]} />
+                </View>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
+              </View>
+              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center' }}>
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20, marginTop: 40, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="scan-outline" size={20} color={COLORS.accent} />
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>وجّه الكاميرا نحو رمز الدخول للمسح</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Close / Back Button */}
+            <SafeAreaView style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+              <View style={{ padding: 20, alignItems: 'flex-start' }}>
+                <TouchableOpacity 
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }} 
+                  onPress={() => setIsScanning(false)}
+                >
+                  <Ionicons name="close" size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+
+          </View>
+        ) : null}
+
         <View style={styles.content}>
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>مرفأ</Text>
+            <Text style={styles.title}>معرفى</Text>
             <Text style={styles.subtitle}>{isLogin ? 'تسجيل الدخول إلى حسابك' : 'إنشاء حساب جديد'}</Text>
           </View>
 
@@ -143,6 +231,16 @@ export default function LoginScreen() {
               <Text style={styles.switchText}>{isLogin ? 'إنشاء حساب' : 'تسجيل الدخول'}</Text>
             </TouchableOpacity>
           </View>
+
+          {isLogin && (
+            <TouchableOpacity 
+              style={{ marginTop: 24, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8 }} 
+              onPress={startScanning}
+            >
+              <Ionicons name="qr-code-outline" size={24} color={COLORS.primary} />
+              <Text style={{ color: COLORS.primary, fontWeight: '700', fontSize: 16 }}>استخدام رمز الدخول (Barcode)</Text>
+            </TouchableOpacity>
+          )}
         </View>
         </View>
       </SafeAreaView>
@@ -151,6 +249,12 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  corner: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderColor: COLORS.accent,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.bgMain,

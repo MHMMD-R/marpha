@@ -1,3 +1,5 @@
+// In dev (`npm run dev`), uploadApiBase is empty (hitting the Vite plugin middleware).
+// In prod (`npm run build`), it uses the VITE_UPLOAD_API_BASE environment variable.
 const uploadApiBase = (import.meta.env.VITE_UPLOAD_API_BASE || "").replace(/\/+$/, "")
 
 const toApiUrl = (path: string): string => `${uploadApiBase}${path}`
@@ -17,7 +19,7 @@ const readApiError = async (response: Response): Promise<string> => {
 
 export async function uploadToR2(
   file: File,
-  bucketType: "LECTURES" | "QUIZZES",
+  bucketType: "LECTURES" | "QUIZZES" | "PROFILES",
   folder: string = ""
 ): Promise<string> {
   const params = new URLSearchParams({

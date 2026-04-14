@@ -1,0 +1,20 @@
+name = "marpha-uploader"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+
+[[r2_buckets]]
+binding = "LECTURES"
+bucket_name = "lectures"
+
+[[r2_buckets]]
+binding = "QUIZZES"
+bucket_name = "quiz-images"
+
+[[r2_buckets]]
+binding = "PROFILES"
+bucket_name = "profiles"
+
+[vars]
+VITE_R2_LECTURES_PUBLIC_URL = "https://pub-08a4674bffc14628b27e83d1ce5b0c1c.r2.dev"
+VITE_R2_QUIZZES_PUBLIC_URL = "https://pub-a2ef9336f92a4f5896eab11adf73162b.r2.dev"
+VITE_R2_PROFILES_PUBLIC_URL = "https://pub-6c74bdd1e82c4dd280dc41a6522c204e.r2.dev"
