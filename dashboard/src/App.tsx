@@ -5,8 +5,10 @@ import {
     Check,
     ChevronLeft,
     Edit2,
+    Edit3,
     GraduationCap,
     LayoutDashboard,
+    LogOut,
     MessageCircle,
     Save,
     Search,
@@ -22,10 +24,10 @@ import {
 import { GroupsPanel } from "./GroupsPanel";
 import "./index.css";
 
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { db } from "./firebase";
+import { auth, db } from "./firebase";
 import { uploadToR2 } from "./r2";
 
 // Iraqi 6th Preparatory (السادس الإعدادي) — Scientific & Literary branches
@@ -48,27 +50,6 @@ const IRAQI_SUBJECTS = [
 ];
 
 // ─── Data ───────────────────────────────────────────────────────
-const STATS = [
-  { title: "إجمالي الطلاب", value: "1,247", trend: "+12%", up: true, icon: Users, color: "#12453D", bg: "#EEF5F3" },
-  { title: "المحاضرات", value: "186", trend: "+8%", up: true, icon: Video, color: "#E3A736", bg: "#FFF8E8" },
-  { title: "المواد الدراسية", value: "7", trend: "—", up: true, icon: BookOpen, color: "#3B82F6", bg: "#EFF6FF" },
-  { title: "نسبة الإنجاز", value: "73%", trend: "+5%", up: true, icon: TrendingUp, color: "#10B981", bg: "#ECFDF5" },
-];
-
-const ACTIVITIES = [
-  { text: "تم رفع محاضرة جديدة في الفيزياء", time: "منذ 5 دقائق", color: "#12453D" },
-  { text: "أحمد محمد أكمل اختبار الكيمياء", time: "منذ 15 دقيقة", color: "#10B981" },
-  { text: "تم تحديث منهج الرياضيات", time: "منذ ساعة", color: "#E3A736" },
-  { text: "فاطمة علي بدأت مشاهدة محاضرة جديدة", time: "منذ ساعتين", color: "#3B82F6" },
-  { text: "تم إضافة 12 طالب جديد", time: "منذ 3 ساعات", color: "#CD713C" },
-];
-
-const FALLBACK_SUBJECTS = [
-  { title: "الفيزياء", lessons: 35, progress: 55, color: "#12453D", bg: "#EEF5F3", teacherName: "أ. عبدالكريم", teacherImage: "https://i.pravatar.cc/150?u=physics" },
-  { title: "الكيمياء", lessons: 33, progress: 45, color: "#E3A736", bg: "#FFF8E8", teacherName: "أ. سعد", teacherImage: "https://i.pravatar.cc/150?u=chemistry" },
-  { title: "الرياضيات", lessons: 40, progress: 90, color: "#3B82F6", bg: "#EFF6FF", teacherName: "أ. حيدر", teacherImage: "https://i.pravatar.cc/150?u=math" },
-  { title: "الأحياء", lessons: 38, progress: 85, color: "#10B981", bg: "#ECFDF5", teacherName: "أ. مريم", teacherImage: "https://i.pravatar.cc/150?u=bio" },
-];
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "لوحة التحكم", id: "dashboard" },
@@ -83,8 +64,8 @@ const NAV_ITEMS = [
 ];
 
 const NAV_ITEMS_SYSTEM = [
-  { icon: Bell, label: "الإشعارات"},
-  { icon: Settings, label: "الإعدادات" },
+  { icon: Bell, label: "الإشعارات", id: "notifications" },
+  { icon: Settings, label: "الإعدادات", id: "settings" },
 ];
 
 // ─── Animation helpers ──────────────────────────────────────────
@@ -96,6 +77,13 @@ const fadeUp = (delay = 0) => ({
 
 // ─── App ────────────────────────────────────────────────────────
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('dashboard_auth') === 'true';
+  });
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [subjects, setSubjects] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -128,6 +116,11 @@ function App() {
 
   const [manageTarget, setManageTarget] = useState<{ type: 'student' | 'teacher', data: any } | null>(null);
   const [showQR, setShowQR] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState("");
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [adminUpdateMsg, setAdminUpdateMsg] = useState("");
+  const [editingSubject, setEditingSubject] = useState<{id: string, name: string} | null>(null);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editFormData, setEditFormData] = useState({ name: "", subject: "" });
   const [isSavingUser, setIsSavingUser] = useState(false);
@@ -470,6 +463,53 @@ function App() {
     }
   };
 
+
+  const handleAddSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!newSubjectName.trim()) return;
+    try {
+      const { collection, addDoc } = await import("firebase/firestore");
+      await addDoc(collection(db, "subjects"), { name: newSubjectName.trim(), createdAt: new Date().toISOString() });
+      setNewSubjectName("");
+      alert("تمت الإضافة بنجاح");
+    } catch(err: any) { alert(err.message); }
+  };
+
+  const handleDeleteSubject = async (id: string) => {
+    if(!confirm("تأكيد الحذف؟")) return;
+    try {
+      const { doc, deleteDoc } = await import("firebase/firestore");
+      await deleteDoc(doc(db, "subjects", id));
+      alert("تم الحذف بنجاح");
+    } catch(err: any) { alert(err.message); }
+  };
+
+
+  const handleUpdateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!newAdminEmail && !newAdminPassword) return;
+    try {
+      const { auth } = await import("./firebase");
+      const { updateEmail, updatePassword } = await import("firebase/auth");
+      if(!auth.currentUser) throw new Error("الرجاء تسجيل الدخول أولاً. قد تحتاج لتسجيل الخروج والدخول مجدداً لتحديث البيانات.");
+      if(newAdminEmail) await updateEmail(auth.currentUser, newAdminEmail);
+      if(newAdminPassword) await updatePassword(auth.currentUser, newAdminPassword);
+      setAdminUpdateMsg("تم تحديث البيانات بنجاح");
+      setNewAdminPassword("");
+    } catch(err: any) {
+      setAdminUpdateMsg("خطأ: " + err.message);
+    }
+  };
+
+  const handleUpdateSubject = async (id: string, newName: string) => {
+    if(!newName.trim()) return;
+    try {
+      const { doc, updateDoc } = await import("firebase/firestore");
+      await updateDoc(doc(db, "subjects", id), { name: newName.trim() });
+      alert("تم التعديل بنجاح");
+    } catch(err: any) { alert(err.message); }
+  };
+
   useEffect(() => {
     try {
       const unsubSubjects = onSnapshot(collection(db, "subjects"), (snapshot) => {
@@ -480,7 +520,7 @@ function App() {
           }));
           setSubjects(fetchedSubjects);
         } else {
-          setSubjects(FALLBACK_SUBJECTS);
+          setSubjects([]);
         }
       });
       
@@ -560,6 +600,84 @@ function App() {
     }
   }, []);
 
+  const STATS = [
+    { title: "إجمالي الطلاب", value: students.length.toString(), trend: "نشط", up: true, icon: Users, color: "#12453D", bg: "#EEF5F3" },
+    { title: "المحاضرات", value: videos.length.toString(), trend: "مرفوعة", up: true, icon: Video, color: "#E3A736", bg: "#FFF8E8" },
+    { title: "المواد الدراسية", value: (subjects.length > 0 ? subjects.length : Array.from(new Set(videos.map(v => v.subject).filter(Boolean))).length).toString(), trend: "مسجلة", up: true, icon: BookOpen, color: "#3B82F6", bg: "#EFF6FF" },
+    { title: "المعلمون", value: teachers.length.toString(), trend: "نخبة", up: true, icon: GraduationCap, color: "#10B981", bg: "#ECFDF5" },
+  ];
+
+  const ACTIVITIES = videos
+    .slice()
+    .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+    .slice(0, 5)
+    .map(v => ({ text: `تم رفع ${v.title || 'محاضرة جديدة'} في ${v.subject || 'مادة'}`, time: (v.createdAt?.seconds ? new Date(v.createdAt.seconds * 1000).toLocaleDateString() : "حديثاً"), color: "#12453D" }));
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = loginUsername.includes('@') ? loginUsername : `${loginUsername}@marpha.app`;
+    try {
+      await signInWithEmailAndPassword(auth, email, loginPassword);
+      setIsAuthenticated(true);
+      sessionStorage.setItem('dashboard_auth', 'true');
+      setLoginError("");
+    } catch (err: any) {
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setLoginError("بيانات الدخول غير صحيحة");
+      } else {
+        setLoginError(`حدث خطأ أثناء تسجيل الدخول: ${err.message}`);
+      }
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#F4F7F6', direction: 'rtl', fontFamily: 'Cairo, sans-serif' }}>
+        <form onSubmit={handleLogin} className="glass-card" style={{ padding: '2.5rem', borderRadius: '16px', background: '#fff', width: '380px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', border: '1px solid #E8EDEC' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ background: '#EEF5F3', padding: '16px', borderRadius: '50%' }}>
+              <GraduationCap size={44} color="#12453D" />
+            </div>
+          </div>
+          <h2 style={{ marginBottom: '1.5rem', color: '#12453D', fontSize: '1.5rem', fontWeight: '800' }}>لوحة تحكم الإدارة</h2>
+          
+          {loginError && <p style={{ color: '#EF4444', marginBottom: '1rem', fontSize: '14px', background: '#FEF2F2', padding: '10px', borderRadius: '8px', fontWeight: 'bold' }}>{loginError}</p>}
+          
+          <div style={{ marginBottom: '1.2rem', textAlign: 'right' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '14px', color: '#5A7A74', fontWeight: '800' }}>اسم المستخدم</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="admin" 
+              value={loginUsername} 
+              onChange={e => setLoginUsername(e.target.value)} 
+              style={{ width: '100%', boxSizing: "border-box", padding: '12px 16px', borderRadius: '12px', border: '1px solid #E8EDEC', background: '#FAFBFA', transition: 'all 0.2s ease', fontFamily: 'inherit', fontSize: '15px' }} 
+              required
+            />
+          </div>
+          <div style={{ marginBottom: '2.5rem', textAlign: 'right' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '14px', color: '#5A7A74', fontWeight: '800' }}>كلمة المرور</label>
+            <input 
+              type="password" 
+              className="form-input" 
+              placeholder="123456" 
+              value={loginPassword} 
+              onChange={e => setLoginPassword(e.target.value)} 
+              style={{ width: '100%', boxSizing: "border-box", padding: '12px 16px', borderRadius: '12px', border: '1px solid #E8EDEC', background: '#FAFBFA', transition: 'all 0.2s ease', fontFamily: 'inherit', fontSize: '15px' }} 
+              required
+            />
+          </div>
+          <button 
+            type="submit"
+            style={{ width: '100%', padding: '16px', borderRadius: '12px', background: '#12453D', color: '#fff', fontSize: '16px', fontWeight: '800', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(18, 69, 61, 0.2)' }}
+          >
+            تسجيل الدخول <ChevronLeft size={18} />
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="app-layout">
       {/* ═══ Sidebar ═══ */}
@@ -584,16 +702,20 @@ function App() {
             >
               <item.icon size={20} />
               <span>{item.label}</span>
-              {item.badge && <span className="nav-badge">{item.badge}</span>}
+              
             </a>
           ))}
 
           <div className="nav-section-label">النظام</div>
           {NAV_ITEMS_SYSTEM.map((item, i) => (
-            <a key={i} className="nav-item">
+            <a 
+              key={i} 
+              className={`nav-item ${activeTab === item.id ? "active" : ""}`}
+              onClick={() => setActiveTab(item.id)}
+            >
               <item.icon size={20} />
               <span>{item.label}</span>
-              {item.badge && <span className="nav-badge">{item.badge}</span>}
+              
             </a>
           ))}
         </nav>
@@ -603,7 +725,7 @@ function App() {
             <div className="sidebar-user-avatar">م</div>
             <div className="sidebar-user-info">
               <h4>المشرف العام</h4>
-              <p style={{ cursor: "pointer", color: "var(--gold)", fontSize: "0.65rem", fontWeight: "bold" }}>تعديل الملف الشخصي</p>
+              <p onClick={() => setActiveTab("settings")} style={{ cursor: "pointer", color: "var(--gold)", fontSize: "0.65rem", fontWeight: "bold" }}>تعديل الملف الشخصي</p>
             </div>
           </div>
         </div>
@@ -1001,6 +1123,106 @@ function App() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </motion.div>
+          ) : activeTab === "settings" ? (
+            <motion.div className="panel-card glass-card" {...fadeUp(0.1)} style={{ padding: "40px", minHeight: "70vh" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
+                <h2>الإعدادات والمواد الدراسية</h2>
+                <button 
+                  onClick={async () => {
+                    const { signOut } = await import("firebase/auth");
+                    try {
+                      await signOut(auth);
+                      sessionStorage.removeItem('dashboard_auth');
+                      setIsAuthenticated(false);
+                    } catch(e) {}
+                  }}
+                  style={{
+                    background: "#EF4444", color: "white", padding: "10px 20px", borderRadius: "10px", 
+                    border: "none", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px"
+                  }}
+                >
+                  <LogOut size={18} />
+                  تسجيل الخروج
+                </button>
+              </div>
+
+              <div style={{ background: "#F9FAFB", padding: "20px", borderRadius: "16px", marginBottom: "30px", border: "1px solid #E5E7EB" }}>
+                <h3>تحديث بيانات حساب المشرف</h3>
+                {adminUpdateMsg && <div style={{ padding: "10px", marginBottom: "15px", background: adminUpdateMsg.includes("خطأ") ? "#FEE2E2" : "#D1FAE5", color: adminUpdateMsg.includes("خطأ") ? "#B91C1C" : "#065F46", borderRadius: "8px" }}>{adminUpdateMsg}</div>}
+                <form onSubmit={handleUpdateAdmin} style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "15px" }}>
+                  <input 
+                    type="email" 
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    placeholder="البريد الإلكتروني الجديد (اختياري)"
+                    style={{ flex: "1 1 200px", padding: "12px 16px", borderRadius: "8px", border: "1px solid #D1D5DB", outline: "none" }}
+                  />
+                  <input 
+                    type="password" 
+                    value={newAdminPassword}
+                    onChange={(e) => setNewAdminPassword(e.target.value)}
+                    placeholder="كلمة المرور الجديدة (اختياري)"
+                    style={{ flex: "1 1 200px", padding: "12px 16px", borderRadius: "8px", border: "1px solid #D1D5DB", outline: "none" }}
+                  />
+                  <button type="submit" style={{ padding: "12px 24px", background: "#F59E0B", color: "white", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "bold" }}>
+                    حفظ التعديلات
+                  </button>
+                </form>
+              </div>
+
+              <div style={{ background: "#F9FAFB", padding: "20px", borderRadius: "16px", marginBottom: "30px", border: "1px solid #E5E7EB" }}>
+                <h3>إضافة مادة جديدة</h3>
+                <form onSubmit={handleAddSubject} style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
+                  <input 
+                    type="text" 
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    placeholder="اسم المادة (مثال: رياضيات، فيزياء)"
+                    style={{ flex: 1, padding: "12px 16px", borderRadius: "8px", border: "1px solid #D1D5DB", outline: "none" }}
+                    required
+                  />
+                  <button type="submit" style={{ padding: "12px 24px", background: "#3B82F6", color: "white", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "bold" }}>
+                    إضافة
+                  </button>
+                </form>
+              </div>
+
+              <h3>المواد الحالية ({subjects?.length || 0})</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: "15px", marginTop: "15px" }}>
+                {subjects?.map(sub => (
+                  <div key={sub.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "white", padding: "15px", borderRadius: "12px", border: "1px solid #E5E7EB", boxShadow: "0 2px 5px rgba(0,0,0,0.02)" }}>
+                    {editingSubject?.id === sub.id ? (
+                      <div style={{ display: "flex", width: "100%", gap: "8px" }}>
+                        <input 
+                          autoFocus
+                          value={editingSubject?.name || ""} 
+                          onChange={(e) => setEditingSubject(prev => prev ? {...prev, name: e.target.value} : null)}
+                          style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #3B82F6" }}
+                        />
+                        <button onClick={() => { if(editingSubject) { handleUpdateSubject(sub.id, editingSubject.name); setEditingSubject(null); } }} style={{ background: "#10B981", color: "white", border: "none", padding: "8px", borderRadius: "6px", cursor: "pointer" }}>
+                          <Check size={16} />
+                        </button>
+                        <button onClick={() => setEditingSubject(null)} style={{ background: "#9CA3AF", color: "white", border: "none", padding: "8px", borderRadius: "6px", cursor: "pointer" }}>
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ fontWeight: "600", fontSize: "1.05rem" }}>{sub.name}</span>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button onClick={() => setEditingSubject({id: sub.id, name: sub.name})} style={{ background: "#EFF6FF", color: "#3B82F6", border: "none", width: "32px", height: "32px", borderRadius: "8px", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                            <Edit3 size={16} />
+                          </button>
+                          <button onClick={() => handleDeleteSubject(sub.id)} style={{ background: "#FEF2F2", color: "#EF4444", border: "none", width: "32px", height: "32px", borderRadius: "8px", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
             </motion.div>
           ) : activeTab === "notifications" ? (
