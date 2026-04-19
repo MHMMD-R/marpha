@@ -35,15 +35,9 @@ const C = {
 };
 
 // Data Models — ordered RTL: rightmost first
-const STATS = [
-  { id: 1, label: 'يوم متتالي', value: '12', icon: 'flame-outline' as const, color: '#56756F', bg: '#F2F6F5' },
-  { id: 2, label: 'مهام مكتملة', value: '7', icon: 'checkmark-done' as const, color: '#56756F', bg: '#F2F6F5' },
-  { id: 3, label: 'ساعات اليوم', value: '3.5', icon: 'time-outline' as const, color: '#56756F', bg: '#F2F6F5' },
-];
-
 const STATIONS = [
   { id: 'lectures', title: 'محاضراتي', subtitle: 'الفيديوهات والتسجيلات', icon: 'videocam', isDark: true, route: '/(tabs)/lectures' },
-  { id: 'subjects', title: 'موادي', subtitle: 'المقررات الدراسية', icon: 'stats-chart', isDark: true, route: '/(tabs)/subjects' },
+  { id: 'subjects', title: 'مدرسين المادة', subtitle: 'المقررات الدراسية', icon: 'stats-chart', isDark: true, route: '/(tabs)/subjects' },
   { id: 'quizzes', title: 'كوزاتي', subtitle: 'الاختبارات القصيرة', icon: 'document-text', isDark: false, route: '/(tabs)/quizzes', badge: 'جديد', lightColor: '#174A42', lightBg: '#EEF3F2' },
   { id: 'notifications', title: 'إشعاراتي', subtitle: 'التنبيهات والرسائل', icon: 'notifications', isDark: false, route: '/(tabs)/notifications', badgeCount: 3, lightColor: '#CD713C', lightBg: '#FDEDE2' },
   { id: 'groups', title: 'مجموعات النقاش', subtitle: 'الدردشة مع المعلمين', icon: 'people', isDark: false, route: '/groups', lightColor: '#4A1742', lightBg: '#F3EEF2' },
@@ -144,7 +138,7 @@ const PulsingDot = () => {
 };
 
 // ─── Animated Stat Card ──────────────────────────────────────────
-const AnimatedStatCard = ({ stat, index }: { stat: typeof STATS[0]; index: number }) => {
+const AnimatedStatCard = ({ stat, index }: { stat: { id: number; label: string; value: string; icon: any; color: string; bg: string }; index: number }) => {
   const anim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
@@ -237,7 +231,7 @@ const AnimatedStationCard = ({ station, index, onPress }: { station: typeof STAT
 };
 
 // ─── Progress Bar With Animated Fill ─────────────────────────────
-const AnimatedProgressBar = () => {
+const AnimatedProgressBar = ({ progress }: { progress: number }) => {
   const fillAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(fillAnim, {
@@ -248,7 +242,7 @@ const AnimatedProgressBar = () => {
   return (
     <View style={styles.progressTrack}>
       <Animated.View style={[styles.progressFill, {
-        width: fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '65%'] }),
+        width: fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${Math.min(progress, 100)}%`] }),
       }]} />
     </View>
   );
@@ -266,6 +260,15 @@ export default function HomeScreen() {
   const heroAnim = useRef(new Animated.Value(0)).current;
   const sectionAnim = useRef(new Animated.Value(0)).current;
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [totalLectures, setTotalLectures] = useState(0);
+  const [watchedLectures, setWatchedLectures] = useState(0);
+  const [totalQuizzes, setTotalQuizzes] = useState(0);
+  const [submittedQuizzes, setSubmittedQuizzes] = useState(0);
+
+  // Compute overall progress
+  const totalItems = totalLectures + totalQuizzes;
+  const completedItems = watchedLectures + submittedQuizzes;
+  const overallProgress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
   useEffect(() => {
     const fetchTeachers = () => {
@@ -283,7 +286,7 @@ export default function HomeScreen() {
     const user = auth.currentUser;
     if (user) {
       const qChats = query(collection(db, 'chats'), where('participants', 'array-contains', user.uid));
-      const unsubscribe = onSnapshot(qChats, (snapshot) => {
+      const unsubChat = onSnapshot(qChats, (snapshot) => {
         let count = 0;
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
@@ -294,14 +297,37 @@ export default function HomeScreen() {
       }, (error) => {
         console.error("Error fetching chats:", error);
       });
-      return () => unsubscribe();
+
+      // Fetch all lectures (total count)
+      const unsubLectures = onSnapshot(collection(db, 'lectures'), (snap) => {
+        setTotalLectures(snap.size);
+      });
+
+      // Fetch this student's watched lectures
+      const qProgress = query(collection(db, 'lecture_progress'), where('studentId', '==', user.uid), where('watched', '==', true));
+      const unsubProgress = onSnapshot(qProgress, (snap) => {
+        setWatchedLectures(snap.size);
+      });
+
+      // Fetch all quizzes
+      const unsubQuizzes = onSnapshot(collection(db, 'quizzes'), (snap) => {
+        setTotalQuizzes(snap.size);
+      });
+
+      // Fetch student's quiz submissions
+      const qSubs = query(collection(db, 'quiz_submissions'), where('studentId', '==', user.uid));
+      const unsubSubs = onSnapshot(qSubs, (snap) => {
+        // Count unique quizzes submitted
+        const uniqueQuizIds = new Set<string>();
+        snap.forEach(d => uniqueQuizIds.add(d.data().quizId));
+        setSubmittedQuizzes(uniqueQuizIds.size);
+      });
+
+      return () => { unsubChat(); unsubLectures(); unsubProgress(); unsubQuizzes(); unsubSubs(); };
     }
   }, []);
 
   useEffect(() => {
-    if (!I18nManager.isRTL) {
-      try { I18nManager.allowRTL(true); I18nManager.forceRTL(true); } catch { /* ignore */ }
-    }
 
     Animated.stagger(150, [
       Animated.timing(headerAnim, { toValue: 1, duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
@@ -365,8 +391,8 @@ export default function HomeScreen() {
                 <Text style={styles.heroTitle}>رحلة المعرفة</Text>
                 <Text style={styles.heroSub}>أكمل من حيث توقفت في دروسك الأخيرة</Text>
                 <View style={styles.progressSection}>
-                  <AnimatedProgressBar />
-                  <Text style={styles.progressPercent}>%65 مكتمل</Text>
+                  <AnimatedProgressBar progress={overallProgress} />
+                  <Text style={styles.progressPercent}>%{overallProgress} مكتمل</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -374,7 +400,11 @@ export default function HomeScreen() {
 
           {/* ─── Quick Stats ──────────────────────── */}
           <View style={styles.statsContainer}>
-            {STATS.map((stat, i) => (
+            {[
+              { id: 1, label: 'محاضرة', value: `${watchedLectures}/${totalLectures}`, icon: 'videocam-outline' as const, color: '#56756F', bg: '#F2F6F5' },
+              { id: 2, label: 'اختبار مُسلّم', value: `${submittedQuizzes}/${totalQuizzes}`, icon: 'checkmark-done' as const, color: '#56756F', bg: '#F2F6F5' },
+              { id: 3, label: 'إنجاز', value: `${overallProgress}%`, icon: 'trophy-outline' as const, color: '#56756F', bg: '#F2F6F5' },
+            ].map((stat, i) => (
               <AnimatedStatCard key={stat.id} stat={stat} index={i} />
             ))}
           </View>

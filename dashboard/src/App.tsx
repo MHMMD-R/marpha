@@ -20,8 +20,14 @@ import {
     Video,
     X,
     XCircle,
+    Star,
+    Clock,
+    DollarSign,
 } from "lucide-react";
 import { GroupsPanel } from "./GroupsPanel";
+import { SubscriptionsPanel } from "./SubscriptionsPanel";
+import { FreeTrialsPanel } from "./FreeTrialsPanel";
+import { FinancePanel } from "./FinancePanel";
 import "./index.css";
 
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
@@ -60,11 +66,14 @@ const NAV_ITEMS = [
   { icon: MessageCircle, label: "المجموعات", id: "groups" },
   { icon: Bell, label: "طلبات الرفع", id: "requests" },
   { icon: GraduationCap, label: "الاختبارات", id: "exams" },
+  { icon: Star, label: "الاشتراكات", id: "subscriptions" },
+  { icon: Clock, label: "الفترات التجريبية", id: "freeTrials" },
   { icon: Bell, label: "الإشعارات الذكية", id: "notifications" },
 ];
 
 const NAV_ITEMS_SYSTEM = [
   { icon: Bell, label: "الإشعارات", id: "notifications" },
+  { icon: DollarSign, label: "المالية", id: "finance" },
   { icon: Settings, label: "الإعدادات", id: "settings" },
 ];
 
@@ -122,14 +131,15 @@ function App() {
   const [adminUpdateMsg, setAdminUpdateMsg] = useState("");
   const [editingSubject, setEditingSubject] = useState<{id: string, name: string} | null>(null);
   const [isEditingUser, setIsEditingUser] = useState(false);
-  const [editFormData, setEditFormData] = useState({ name: "", subject: "" });
+  const [editFormData, setEditFormData] = useState({ name: "", subject: "", canUploadLectures: false });
   const [isSavingUser, setIsSavingUser] = useState(false);
 
   const handleEditUserToggle = () => {
     if (manageTarget) {
       setEditFormData({
         name: manageTarget.data.name || "",
-        subject: manageTarget.data.subject || ""
+        subject: manageTarget.data.subject || "",
+        canUploadLectures: manageTarget.data.canUploadLectures || false
       });
       setIsEditingUser(true);
     }
@@ -144,12 +154,12 @@ function App() {
       const userRef = doc(db, collectionName, manageTarget.data.id || manageTarget.data.uid);
       await updateDoc(userRef, {
         name: editFormData.name,
-        ...(manageTarget.type === 'teacher' ? { subject: editFormData.subject } : {})
+        ...(manageTarget.type === 'teacher' ? { subject: editFormData.subject, canUploadLectures: editFormData.canUploadLectures } : {})
       });
       
       setManageTarget({
         ...manageTarget,
-        data: { ...manageTarget.data, name: editFormData.name, subject: editFormData.subject }
+        data: { ...manageTarget.data, name: editFormData.name, subject: editFormData.subject, canUploadLectures: editFormData.canUploadLectures }
       });
       setIsEditingUser(false);
     } catch (err: any) {
@@ -246,8 +256,19 @@ function App() {
         targetTokens = [...targetTokens, ...teachers.map(t => t.expoPushToken).filter(Boolean)];
       }
 
+      // Always write to Firestore so it appears in the app notifications page
+      await addDoc(collection(db, "admin_notifications"), {
+        title: notificationTitle,
+        body: notificationBody,
+        target: notificationTarget,
+        createdAt: new Date(),
+      });
+
       if (targetTokens.length === 0) {
-        setNotificationStatus("خطأ: لم يتم العثور على أجهزة مسجلة لتلقي الإشعارات.");
+        setNotificationStatus("تم الحفظ. لا توجد أجهزة مسجلة لإرسال الإشعار المباشر.");
+        setNotificationTitle("");
+        setNotificationBody("");
+        setTimeout(() => setNotificationStatus(""), 4000);
         setIsSendingNotification(false);
         return;
       }
@@ -296,9 +317,11 @@ function App() {
         finalTeacherName = "استاذ " + finalTeacherName;
       }
 
+      const fakeEmail = `${newTeacherEmail.trim().toLowerCase().replace(/\s+/g, '_')}@marpha.app`;
+
       // Use secondaryAuth so the dashboard user (admin) doesn't get logged out!
       const { secondaryAuth } = await import("./firebase");
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newTeacherEmail, newTeacherPassword);
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, fakeEmail, newTeacherPassword);
       const user = userCredential.user;
       
       await updateProfile(user, { displayName: finalTeacherName });
@@ -314,14 +337,15 @@ function App() {
         }
       }
 
-      // Save to firestore using the primary db instance (since admin has rights)
       await setDoc(doc(db, "teachers", user.uid), {
         uid: user.uid,
         name: finalTeacherName,
-        email: newTeacherEmail,
+        username: newTeacherEmail.trim().toLowerCase(),
+        email: fakeEmail,
         password: newTeacherPassword, // saved for barcode sign-in
         subject: newTeacherSubject,
         image: profileImage,
+        canUploadLectures: false,
         createdAt: new Date().toISOString()
       });
 
@@ -342,14 +366,27 @@ function App() {
     }
   };
 
+  const handleGenerateTempStudent = () => {
+    const randomId = Math.floor(1000 + Math.random() * 9000);
+    const randomPass = Math.floor(100000 + Math.random() * 900000).toString();
+    setNewStudentName(`طالب ${randomId}`);
+    setNewStudentEmail(`student_${randomId}`);
+    setNewStudentPassword(randomPass);
+  };
+
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStudentName || !newStudentEmail || !newStudentPassword) return;
     
     setIsAddingStudent(true);
     try {
+      const generateUserId = () => Math.floor(100000 + Math.random() * 900000).toString();
+      const newUserId = generateUserId();
+
+      const fakeEmail = `${newStudentEmail.trim().toLowerCase().replace(/\s+/g, '_')}@marpha.app`;
+
       const { secondaryAuth } = await import("./firebase");
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newStudentEmail, newStudentPassword);
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, fakeEmail, newStudentPassword);
       const user = userCredential.user;
 
       await updateProfile(user, { displayName: newStudentName });
@@ -364,15 +401,45 @@ function App() {
         }
       }
 
+      let freeTrialObj = { isActive: false, startDate: "", endDate: "", access: { allowedTeachers: [], allowedSubjects: [] } };
+      try {
+        const { getDoc } = await import("firebase/firestore");
+        const freeTrialSnap = await getDoc(doc(db, "settings", "freeTrial"));
+        if (freeTrialSnap.exists()) {
+          const ftData = freeTrialSnap.data();
+          const lengthDays = ftData.defaultLengthDays || 7;
+          const now = new Date();
+          const endDate = new Date();
+          endDate.setDate(now.getDate() + lengthDays);
+          freeTrialObj = {
+            isActive: true,
+            startDate: now.toISOString(),
+            endDate: endDate.toISOString(),
+            access: ftData.defaultAccess || { allowedTeachers: [], allowedSubjects: [] }
+          };
+        }
+      } catch (err) {
+        console.error("Error fetching freeTrial settings:", err);
+      }
+
       await setDoc(doc(db, "students", user.uid), {
         uid: user.uid,
         name: newStudentName,
-        email: newStudentEmail,
+        username: newStudentEmail.trim().toLowerCase(),
+        email: fakeEmail,
         password: newStudentPassword,
         subject: "عام",
         progress: 0,
         status: "active",
         image: profileImage,
+        isSetupComplete: false,
+        userId: newUserId,
+        subscription: {
+          type: "limited",
+          allowedTeachers: [],
+          allowedSubjects: []
+        },
+        freeTrial: freeTrialObj,
         createdAt: new Date().toISOString()
       });
 
@@ -687,7 +754,7 @@ function App() {
             <GraduationCap size={22} color="#fff" />
           </div>
           <div>
-            <h1>معرفى</h1>
+            <h1>معرفة</h1>
             <span>لوحة التحكم</span>
           </div>
         </div>
@@ -1063,6 +1130,12 @@ function App() {
             </motion.div>
           ) : activeTab === "groups" ? (
             <GroupsPanel />
+          ) : activeTab === "finance" ? (
+            <FinancePanel />
+          ) : activeTab === "subscriptions" ? (
+            <SubscriptionsPanel />
+          ) : activeTab === "freeTrials" ? (
+            <FreeTrialsPanel />
           ) : activeTab === "requests" ? (
             <motion.div className="panel-card glass-card" {...fadeUp(0.1)} style={{ minHeight: "60vh" }}>
               <div className="panel-header">
@@ -1332,12 +1405,12 @@ function App() {
                 />
               </div>
               <div className="form-group">
-                <label>البريد الإلكتروني</label>
+                <label>اسم المستخدم</label>
                 <input 
-                  type="email" 
+                  type="text" 
                   value={newStudentEmail} 
                   onChange={(e) => setNewStudentEmail(e.target.value)} 
-                  placeholder="example@mail.com"
+                  placeholder="مثال: ahmed123"
                   required
                   disabled={isAddingStudent}
                   style={{ textAlign: "right" }}
@@ -1366,6 +1439,15 @@ function App() {
                 />
               </div>
               <div className="modal-actions">
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={handleGenerateTempStudent}
+                  disabled={isAddingStudent}
+                  style={{ marginRight: 'auto', background: "#E8EDEC", color: "#12453D" }}
+                >
+                  توليد حساب مؤقت
+                </button>
                 <button 
                   type="button" 
                   className="btn-secondary" 
@@ -1417,12 +1499,12 @@ function App() {
                 />
               </div>
               <div className="form-group">
-                <label>البريد الإلكتروني</label>
+                <label>اسم المستخدم</label>
                 <input 
-                  type="email" 
+                  type="text" 
                   value={newTeacherEmail} 
                   onChange={(e) => setNewTeacherEmail(e.target.value)} 
-                  placeholder="teacher@mail.com"
+                  placeholder="مثال: teacher_ahmed"
                   required
                   disabled={isAddingTeacher}
                   style={{ textAlign: "right" }}
@@ -1652,8 +1734,8 @@ function App() {
 
                   <div style={{ background: "rgba(255,255,255,0.05)", padding: "16px", borderRadius: "12px", marginBottom: "20px" }}>
                     <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#8A9E99", fontSize: "0.9rem" }}>البريد الإلكتروني</span>
-                      <strong>{manageTarget.data.email || 'غير متوفر'}</strong>
+                      <span style={{ color: "#8A9E99", fontSize: "0.9rem" }}>اسم المستخدم</span>
+                      <strong>{manageTarget.data.username || manageTarget.data.email || 'غير متوفر'}</strong>
                     </div>
                     {manageTarget.data.password && (
                       <div style={{ marginBottom: "0", display: "flex", justifyContent: "space-between" }}>
@@ -1683,7 +1765,7 @@ function App() {
                   </div>
 
                   <div style={{ textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "20px" }}>
-                    {manageTarget.data.email && manageTarget.data.password ? (      
+                    {(manageTarget.data.username || manageTarget.data.email) && manageTarget.data.password ? (      
                       <>
                         {!showQR ? (
                           <button 
@@ -1698,13 +1780,13 @@ function App() {
                             <h4 style={{ marginBottom: "16px" }}>رمز الدخول (QR Code)</h4>
                             <div style={{ display: "inline-block", background: "#fff", padding: "12px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
                               <img
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(manageTarget.data.email + '|' + manageTarget.data.password)}`}
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent((manageTarget.data.username || manageTarget.data.email) + '|' + manageTarget.data.password)}`}
                                 alt="QR Code"
                                 style={{ width: "180px", height: "180px", display: "block" }}
                               />
                             </div>
                             <p style={{ fontSize: "0.85rem", color: "#8A9E99", marginTop: "16px", lineHeight: "1.5" }}>
-                              للتسجيل مباشرة دون الحاجة لكتابة البريد الإلكتروني وكلمة المرور.
+                              للتسجيل مباشرة دون الحاجة لكتابة اسم المستخدم وكلمة المرور.
                             </p>
                             <button
                               className="btn-secondary"
@@ -1718,7 +1800,7 @@ function App() {
                       </>
                     ) : (
                       <div style={{ color: "#E3A736", background: "rgba(227, 167, 54, 0.1)", padding: "12px", borderRadius: "8px", fontSize: "0.9rem" }}>
-                        لا يمكن توليد رمز استجابة سريعة، تنقص بيانات الدخول أو كلمة المرور المؤقتة.
+                        لا يمكن توليد رمز استجابة سريعة، تنقص بيانات الدخول أو كلمة المرور.
                       </div>
                     )}
                   </div>
@@ -1735,20 +1817,32 @@ function App() {
                     />
                   </div>
                   {manageTarget.type === 'teacher' && (
-                    <div className="form-group">
-                      <label>المادة (التخصص)</label>
-                      <select 
-                        value={editFormData.subject} 
-                        onChange={e => setEditFormData({ ...editFormData, subject: e.target.value })}
-                        required
-                        style={{ textAlign: "right", padding: "12px", borderRadius: "10px", border: "1px solid #E8EDEC", backgroundColor: "#FAFBFA", width: "100%", fontSize: "0.95rem" }}
-                      >
-                        <option value="" disabled>اختر المادة...</option>
-                        {IRAQI_SUBJECTS.map((subject, idx) => (
-                          <option key={idx} value={subject}>{subject}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <>
+                      <div className="form-group">
+                        <label>المادة (التخصص)</label>
+                        <select 
+                          value={editFormData.subject} 
+                          onChange={e => setEditFormData({ ...editFormData, subject: e.target.value })}
+                          required
+                          style={{ textAlign: "right", padding: "12px", borderRadius: "10px", border: "1px solid #E8EDEC", backgroundColor: "#FAFBFA", width: "100%", fontSize: "0.95rem" }}
+                        >
+                          <option value="" disabled>اختر المادة...</option>
+                          {IRAQI_SUBJECTS.map((subject, idx) => (
+                            <option key={idx} value={subject}>{subject}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ flexDirection: 'row-reverse', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          id="canUploadLectures"
+                          checked={editFormData.canUploadLectures}
+                          onChange={e => setEditFormData({ ...editFormData, canUploadLectures: e.target.checked })}
+                          style={{ width: '18px', height: '18px' }}
+                        />
+                        <label htmlFor="canUploadLectures" style={{ marginBottom: 0, cursor: 'pointer' }}>السماح برفع المحاضرات (رفع الفيديوهات)</label>
+                      </div>
+                    </>
                   )}
                   <p style={{ fontSize: "0.8rem", color: "#8A9E99", marginBottom: "20px" }}>
                     ملاحظة: لتغيير البريد الإلكتروني أو كلمة المرور بشكل كامل يجب استخدام لوحة تحكم Firebase Auth للحفاظ على أمان المنصة.

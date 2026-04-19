@@ -14,7 +14,12 @@ bucket_name = "quiz-images"
 binding = "PROFILES"
 bucket_name = "profiles"
 
+[[r2_buckets]]
+binding = "PLAYLIST_THUMBNAIL"
+bucket_name = "playlist-thumbnail"
+
 [vars]
 VITE_R2_LECTURES_PUBLIC_URL = "https://pub-08a4674bffc14628b27e83d1ce5b0c1c.r2.dev"
 VITE_R2_QUIZZES_PUBLIC_URL = "https://pub-a2ef9336f92a4f5896eab11adf73162b.r2.dev"
 VITE_R2_PROFILES_PUBLIC_URL = "https://pub-6c74bdd1e82c4dd280dc41a6522c204e.r2.dev"
+VITE_R2_PLAYLISTS_PUBLIC_URL = "https://pub-bd2a84a6e3f545d8832af6304d86434c.r2.dev"

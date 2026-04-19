@@ -167,7 +167,7 @@ export default function TeacherHome() {
               )}
             </TouchableOpacity>
             <TouchableOpacity 
-              onPress={() => router.push({ pathname: `/group/${auth.currentUser?.uid}`, params: { name: teacherData?.name || 'المعلم' }})} 
+              onPress={() => router.push({ pathname: `/group/${auth.currentUser?.uid}` as any, params: { name: teacherData?.name || 'المعلم' }})} 
               style={[styles.logoutBtn, { marginLeft: 12 }]}
             >
               <Ionicons name="people-outline" size={24} color={C.white} />

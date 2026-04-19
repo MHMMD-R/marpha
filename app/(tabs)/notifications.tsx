@@ -1,13 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Animated,
     Dimensions,
+    Easing,
     I18nManager,
+    Platform,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -18,17 +21,49 @@ import { auth, db } from "../../firebase";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
+// ─── Design Tokens (matching app palette) ────────────────────────
 const C = {
-  maroon: "#0c3b35", maroonDeep: "#08221f", maroonSoft: "#14594f", maroonGlow: "#1a7568",
-  rose: "#a0d8cc", gold: "#D4A043", goldLight: "#F5DBA3", bg: "#F0F2F1", surface: "#FFFFFF",
-  surfaceWarm: "#F5FAF8", text: "#0F1A18", textMuted: "#7A8A85", overlay: "rgba(8, 34, 31, 0.55)",
+  bgTop: '#0B2923',
+  bgMain: '#F4F7F6',
+  heroCard: '#0A1C18',
+  heroDecor: '#152C26',
+  primary: '#12453D',
+  primarySoft: '#2E5E55',
+  accent: '#E3A736',
+  accentSoft: '#FFF8E8',
+  white: '#FFFFFF',
+  textPrimary: '#10241F',
+  textSecondary: '#8A9E99',
+  borderLight: '#E8EDEC',
+  softGreen: '#EEF5F3',
+  surface: '#FFFFFF',
+  redBadge: '#FF3B30',
 };
+
+// ─── Notification Category Config ────────────────────────────────
+const CATEGORY_CONFIG: Record<string, { icon: string; color: string; bg: string; label: string }> = {
+  quiz:    { icon: "document-text",        color: "#E3A736", bg: "#FFF8E8", label: "اختبار جديد" },
+  grade:   { icon: "school",               color: "#34C759", bg: "#E6F9ED", label: "تم التقييم" },
+  lecture: { icon: "play-circle",          color: "#007AFF", bg: "#E5F0FF", label: "محاضرة جديدة" },
+  chat:    { icon: "chatbubble-ellipses",  color: "#AF52DE", bg: "#F5E6FF", label: "رسالة المعلم" },
+  group:   { icon: "people",              color: "#FF6B35", bg: "#FFF0E8", label: "رسالة المجموعة" },
+};
+
+const FILTER_TABS = [
+  { key: "all",     label: "الكل",       icon: "apps" },
+  { key: "quiz",    label: "اختبارات",    icon: "document-text-outline" },
+  { key: "grade",   label: "درجات",      icon: "school-outline" },
+  { key: "lecture", label: "محاضرات",     icon: "play-circle-outline" },
+  { key: "chat",    label: "رسائل",       icon: "chatbubbles-outline" },
+];
+
+type NotifCategory = "quiz" | "grade" | "lecture" | "chat" | "group";
 
 type AppNotification = {
   id: string;
   title: string;
-  course: string;
-  type: "file" | "alert" | "grade" | "chat";
+  subtitle: string;
+  category: NotifCategory;
   status: "unread" | "read";
   date: string;
   timestamp: number;
@@ -39,63 +74,234 @@ function formatTime(ts: number) {
   if (!ts) return "الآن";
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "الآن";
   if (mins < 60) return `منذ ${mins} دقيقة`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `منذ ${hrs} ساعة`;
-  return `منذ ${Math.floor(hrs / 24)} يوم`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `منذ ${days} يوم`;
+  return `منذ ${Math.floor(days / 7)} أسبوع`;
 }
 
-function AnimatedNotificationCard({ item, index, onPress }: { item: AppNotification; index: number; onPress: () => void }) {
-  const anim = useRef(new Animated.Value(0)).current;
+// ─── Header Decorative Circles ───────────────────────────────────
+const HeaderDecorations = () => {
+  const float1 = useRef(new Animated.Value(0)).current;
+  const float2 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.spring(anim, { toValue: 1, delay: 150 + index * 100, friction: 7, tension: 50, useNativeDriver: true }).start();
-  }, []);
-
-  const isUnread = item.status === "unread";
-
-  const getIcon = () => {
-    switch (item.type) {
-      case "grade": return "school";
-      case "alert": return "alarm";
-      case "file": return "play-circle-outline";
-      case "chat": return "chatbubble-ellipses";
-      default: return "notifications";
-    }
-  };
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(float1, { toValue: 1, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(float1, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(float2, { toValue: 1, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(float2, { toValue: 0, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, [float1, float2]);
 
   return (
-    <Animated.View style={[styles.cardOuter, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.card, isUnread ? { backgroundColor: C.surfaceWarm } : { backgroundColor: C.surface }]}>
-        <View style={[styles.cardIconBox, isUnread ? { backgroundColor: "rgba(12,59,53,0.1)" } : { backgroundColor: "rgba(122,138,133,0.1)" }]}>
-          <Ionicons name={getIcon()} size={28} color={isUnread ? C.maroon : C.textMuted} />
-        </View>
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View style={{
+        position: 'absolute', width: 300, height: 300, borderRadius: 150, top: -80, right: -80,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        transform: [{ translateY: float1.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) }],
+      }} />
+      <Animated.View style={{
+        position: 'absolute', width: 200, height: 200, borderRadius: 100, top: 100, left: -60,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        transform: [{ translateY: float2.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }],
+      }} />
+    </View>
+  );
+};
 
-        <View style={styles.cardContent}>
-          <Text style={styles.cardCourse}>{item.course}</Text>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <View style={styles.cardMeta}>
-            <View style={styles.metaBadge}>
-              <Ionicons name="time-outline" size={14} color={C.textMuted} />
-              <Text style={styles.metaText}>{item.date}</Text>
+// ─── Animated Notification Card ──────────────────────────────────
+function AnimatedNotificationCard({
+  item,
+  index,
+  onPress,
+}: {
+  item: AppNotification;
+  index: number;
+  onPress: () => void;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 400,
+      delay: Math.min(index * 80, 500) + 100,
+      easing: Easing.out(Easing.back(1.1)),
+      useNativeDriver: true,
+    }).start();
+  }, [anim, index]);
+
+  const handlePressIn = useCallback(() => {
+    Animated.spring(pressScale, { toValue: 0.96, friction: 8, tension: 150, useNativeDriver: true }).start();
+  }, [pressScale]);
+
+  const handlePressOut = useCallback(() => {
+    Animated.spring(pressScale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }).start();
+  }, [pressScale]);
+
+  const isUnread = item.status === "unread";
+  const cfg = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.chat;
+
+  return (
+    <Animated.View
+      style={[
+        styles.cardOuter,
+        {
+          opacity: anim,
+          transform: [
+            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
+            { scale: pressScale },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.card}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        {/* Color accent strip */}
+        <View style={[styles.cardStrip, { backgroundColor: cfg.color }]} />
+
+        <View style={styles.cardBody}>
+          <View style={styles.cardRow}>
+            {/* Icon */}
+            <View style={[styles.cardIconBox, { backgroundColor: cfg.bg }]}>
+              <Ionicons name={cfg.icon as any} size={24} color={cfg.color} />
+            </View>
+
+            {/* Content */}
+            <View style={styles.cardContent}>
+              <View style={styles.cardTopRow}>
+                <View style={[styles.categoryPill, { backgroundColor: cfg.bg }]}>
+                  <Text style={[styles.categoryPillText, { color: cfg.color }]}>{cfg.label}</Text>
+                </View>
+                {isUnread && <View style={[styles.unreadDot, { backgroundColor: cfg.color }]} />}
+              </View>
+              <Text style={[styles.cardTitle, isUnread && { color: C.textPrimary }]} numberOfLines={2}>
+                {item.title}
+              </Text>
+              <View style={styles.cardFooter}>
+                <View style={styles.timeBadge}>
+                  <Ionicons name="time-outline" size={12} color={C.textSecondary} />
+                  <Text style={styles.timeText}>{item.date}</Text>
+                </View>
+                <Text style={styles.cardSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+              </View>
             </View>
           </View>
         </View>
-        {isUnread && <View style={styles.unreadDot} />}
+
+        {/* Chevron */}
+        <View style={styles.cardChevron}>
+          <Ionicons name="chevron-back" size={16} color={C.textSecondary} />
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
+// ─── Filter Tab Pill ─────────────────────────────────────────────
+function FilterPill({
+  tab,
+  isActive,
+  onPress,
+  count,
+}: {
+  tab: typeof FILTER_TABS[0];
+  isActive: boolean;
+  onPress: () => void;
+  count: number;
+}) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 0.92, duration: 80, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }),
+    ]).start();
+    onPress();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={[
+          styles.filterPill,
+          isActive ? styles.filterPillActive : styles.filterPillInactive,
+        ]}
+        onPress={handlePress}
+      >
+        <Ionicons
+          name={tab.icon as any}
+          size={16}
+          color={isActive ? C.white : C.textSecondary}
+        />
+        <Text style={[styles.filterText, isActive ? styles.filterTextActive : styles.filterTextInactive]}>
+          {tab.label}
+        </Text>
+        {count > 0 && (
+          <View style={[styles.filterBadge, isActive ? { backgroundColor: 'rgba(255,255,255,0.25)' } : { backgroundColor: C.borderLight }]}>
+            <Text style={[styles.filterBadgeText, isActive && { color: C.white }]}>{count}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ─── Empty State ─────────────────────────────────────────────────
+function EmptyState() {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <View style={styles.emptyState}>
+      <Animated.View style={[styles.emptyIconWrap, { transform: [{ scale: pulseAnim }] }]}>
+        <View style={styles.emptyIconInner}>
+          <Ionicons name="notifications-off-outline" size={44} color={C.primarySoft} />
+        </View>
+      </Animated.View>
+      <Text style={styles.emptyTitle}>لا توجد إشعارات</Text>
+      <Text style={styles.emptyText}>ستظهر الإشعارات هنا عند وصول اختبارات{'\n'}أو محاضرات أو رسائل جديدة</Text>
+    </View>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// MAIN SCREEN
+// ═════════════════════════════════════════════════════════════════
 export default function NotificationsScreen() {
   const router = useRouter();
   const headerAnim = useRef(new Animated.Value(0)).current;
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("all");
 
   useEffect(() => {
     Animated.spring(headerAnim, { toValue: 1, friction: 8, tension: 50, useNativeDriver: true }).start();
-  }, []);
+  }, [headerAnim]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -110,7 +316,7 @@ export default function NotificationsScreen() {
       setNotifications(Object.values(items).sort((a, b) => b.timestamp - a.timestamp));
     };
 
-    // 1. Chats
+    // 1. Teacher Chats (Direct Messages)
     const unsubChats = onSnapshot(query(collection(db, "chats"), where("participants", "array-contains", user.uid)), (snap) => {
       snap.forEach((doc) => {
         const data = doc.data();
@@ -118,13 +324,12 @@ export default function NotificationsScreen() {
         const otherTypeKey = `chat_${doc.id}`;
         if (unread > 0) {
           const otherParticipant = data.participants?.find((p: string) => p !== user.uid);
-          // Only show up if we can identify the sender
           if (otherParticipant) {
              items[otherTypeKey] = {
-               id: otherTypeKey, 
-               title: `تم استلام ${unread} رسالة غير مقروءة`, 
-               course: "محادثة جديدة", 
-               type: "chat", 
+               id: otherTypeKey,
+               title: `لديك ${unread} رسالة غير مقروءة`,
+               subtitle: "محادثة مع المعلم",
+               category: "chat",
                status: "unread",
                timestamp: data.lastMessageTime?.toMillis() || Date.now(),
                date: formatTime(data.lastMessageTime?.toMillis()),
@@ -138,20 +343,55 @@ export default function NotificationsScreen() {
       updateItems();
     });
 
-    // 2. Lectures
+    // 2. Group Messages
+    const unsubGroups = onSnapshot(collection(db, "teachers"), (snap) => {
+      snap.forEach((doc) => {
+        const data = doc.data();
+        const groupKey = `grp_${doc.id}`;
+        // Check latest messages in the group
+        const groupRef = collection(db, "groups", doc.id, "group_messages");
+        onSnapshot(query(groupRef, orderBy("createdAt", "desc"), limit(1)), (msgSnap) => {
+          if (!msgSnap.empty) {
+            const msgData = msgSnap.docs[0].data();
+            // Show if the last message is not from the current user and is recent (within 24 hours)
+            if (msgData.senderId !== user.uid) {
+              const ts = msgData.createdAt?.toMillis() || Date.now();
+              const isRecent = (Date.now() - ts) < 86400000; // 24h
+              if (isRecent) {
+                items[groupKey] = {
+                  id: groupKey,
+                  title: `رسالة جديدة في مجموعة ${data.name || 'النقاش'}`,
+                  subtitle: msgData.text?.substring(0, 50) || "رسالة جديدة",
+                  category: "group",
+                  status: "unread",
+                  timestamp: ts,
+                  date: formatTime(ts),
+                  routeObj: { pathname: "/group/[id]", params: { id: doc.id, name: `مجموعة ${data.name}` } }
+                };
+              } else {
+                delete items[groupKey];
+              }
+            }
+          }
+          updateItems();
+        });
+      });
+    });
+
+    // 3. Lectures
     const unsubLectures = onSnapshot(query(collection(db, "lectures"), orderBy("createdAt", "desc"), limit(10)), (snap) => {
       snap.forEach((doc) => {
         const data = doc.data();
         if (data.status === "active" || data.status === "accepted") {
           const ts = data.createdAt?.toMillis() || Date.now();
           items[`lec_${doc.id}`] = {
-            id: `lec_${doc.id}`, 
-            title: data.title || "محاضرة جديدة أضيفت", 
-            course: "محاضرة جديدة", 
-            type: "file", 
+            id: `lec_${doc.id}`,
+            title: data.title || "تم إضافة محاضرة جديدة",
+            subtitle: data.subject || "محاضرة جديدة",
+            category: "lecture",
             status: "unread",
-            timestamp: ts, 
-            date: formatTime(ts), 
+            timestamp: ts,
+            date: formatTime(ts),
             routeObj: `/video/${doc.id}`
           };
         }
@@ -159,20 +399,20 @@ export default function NotificationsScreen() {
       updateItems();
     });
 
-    // 3. Quizzes
+    // 4. Quizzes
     const unsubQuizzes = onSnapshot(query(collection(db, "quizzes"), orderBy("createdAt", "desc"), limit(10)), (snap) => {
       snap.forEach((doc) => {
         const data = doc.data();
         if (data.status === "active" || data.status === "accepted") {
           const ts = data.createdAt?.toMillis() || Date.now();
           items[`qz_${doc.id}`] = {
-            id: `qz_${doc.id}`, 
-            title: data.title || "تم إضافة اختبار جديد لك", 
-            course: "اختبار متاح", 
-            type: "alert", 
+            id: `qz_${doc.id}`,
+            title: data.title || "تم إضافة اختبار جديد لك",
+            subtitle: data.subject || "اختبار متاح",
+            category: "quiz",
             status: "unread",
-            timestamp: ts, 
-            date: formatTime(ts), 
+            timestamp: ts,
+            date: formatTime(ts),
             routeObj: `/quiz/${doc.id}`
           };
         }
@@ -180,20 +420,20 @@ export default function NotificationsScreen() {
       updateItems();
     });
 
-    // 4. Graded Submissions
+    // 5. Graded Submissions
     const unsubGrades = onSnapshot(query(collection(db, "quiz_submissions"), where("studentId", "==", user.uid)), (snap) => {
       snap.forEach((doc) => {
         const data = doc.data();
         if (data.graded) {
           const ts = data.createdAt?.toMillis() || Date.now();
           items[`grd_${doc.id}`] = {
-            id: `grd_${doc.id}`, 
-            title: `تم تقييمك بدرجة: ${data.score}`, 
-            course: data.quizTitle || "نتيجة اختبار", 
-            type: "grade", 
+            id: `grd_${doc.id}`,
+            title: `تم تقييمك بدرجة: ${data.score}`,
+            subtitle: data.quizTitle || "نتيجة اختبار",
+            category: "grade",
             status: "unread",
-            timestamp: ts, 
-            date: formatTime(ts), 
+            timestamp: ts,
+            date: formatTime(ts),
             routeObj: `/quiz/${data.quizId}`
           };
         }
@@ -202,57 +442,300 @@ export default function NotificationsScreen() {
       setLoading(false);
     });
 
-    return () => { unsubChats(); unsubLectures(); unsubQuizzes(); unsubGrades(); };
+    // 6. Admin broadcast notifications (sent from dashboard)
+    const unsubAdmin = onSnapshot(query(collection(db, "admin_notifications"), orderBy("createdAt", "desc"), limit(20)), (snap) => {
+      snap.forEach((doc) => {
+        const data = doc.data();
+        // Show if targeted to all or students
+        if (data.target === "all" || data.target === "students") {
+          const ts = data.createdAt?.toMillis() || Date.now();
+          items[`adm_${doc.id}`] = {
+            id: `adm_${doc.id}`,
+            title: data.title || "إشعار من الإدارة",
+            subtitle: data.body || "",
+            category: "chat" as NotifCategory,
+            status: "unread",
+            timestamp: ts,
+            date: formatTime(ts),
+            routeObj: { pathname: "/(tabs)" }
+          };
+        }
+      });
+      updateItems();
+    });
+
+    return () => { unsubChats(); unsubGroups(); unsubLectures(); unsubQuizzes(); unsubGrades(); unsubAdmin(); };
   }, []);
 
+  // ─── Filtering ─────────────────────────────────────────────────
+  const filteredNotifications = activeFilter === "all"
+    ? notifications
+    : activeFilter === "chat"
+      ? notifications.filter(n => n.category === "chat" || n.category === "group")
+      : notifications.filter(n => n.category === activeFilter);
+
+  // Count per filter (for badges)
+  const countFor = (key: string) => {
+    if (key === "all") return notifications.length;
+    if (key === "chat") return notifications.filter(n => n.category === "chat" || n.category === "group").length;
+    return notifications.filter(n => n.category === key).length;
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.bgLayer}><View style={styles.bgPrimary} /></View>
+    <View style={styles.wrapper}>
+      <StatusBar barStyle="light-content" backgroundColor={C.bgTop} />
+
+      {/* Background */}
+      <View style={styles.topBgLayer}>
+        <HeaderDecorations />
+      </View>
+      <View style={styles.topBgGlow} />
+
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Animated.View style={[styles.header, { opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] }]}>
+
+          {/* ─── Header ─── */}
+          <Animated.View style={[styles.header, {
+            opacity: headerAnim,
+            transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-15, 0] }) }],
+          }]}>
             <TouchableOpacity style={styles.backBtn} activeOpacity={0.8} onPress={() => router.back()}>
-              <Ionicons name={I18nManager.isRTL ? "chevron-forward" : "chevron-back"} size={26} color="#FFFFFF" />
+              <Ionicons name="arrow-forward" size={22} color={C.white} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>إشعاراتي</Text>
-            <View style={styles.placeholder} />
+
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerSubtitle}>ابق على اطلاع بكل جديد</Text>
+              <Text style={styles.headerTitle}>إشعاراتي</Text>
+            </View>
           </Animated.View>
 
-          <View style={styles.listContainer}>
+          {/* ─── Stats Summary ─── */}
+          <Animated.View style={[styles.statsRow, {
+            opacity: headerAnim,
+            transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+          }]}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{notifications.length}</Text>
+              <Text style={styles.statLabel}>إجمالي</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: C.accent }]}>
+                {notifications.filter(n => n.status === "unread").length}
+              </Text>
+              <Text style={styles.statLabel}>غير مقروء</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: '#34C759' }]}>
+                {notifications.filter(n => n.category === "grade").length}
+              </Text>
+              <Text style={styles.statLabel}>درجات</Text>
+            </View>
+          </Animated.View>
+
+          {/* ─── Filter Tabs ─── */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+            style={styles.filterScroll}
+          >
+            {[...FILTER_TABS].reverse().map(tab => (
+              <FilterPill
+                key={tab.key}
+                tab={tab}
+                isActive={activeFilter === tab.key}
+                onPress={() => setActiveFilter(tab.key)}
+                count={countFor(tab.key)}
+              />
+            ))}
+          </ScrollView>
+
+          {/* ─── Content ─── */}
+          <View style={styles.content}>
+            <View style={styles.sectionRow}>
+              <Ionicons name="notifications" size={16} color={C.textPrimary} />
+              <Text style={styles.sectionTitle}>
+                {activeFilter === "all" ? "جميع الإشعارات" :
+                 FILTER_TABS.find(t => t.key === activeFilter)?.label || "الإشعارات"}
+              </Text>
+              <Text style={styles.sectionCount}>{filteredNotifications.length}</Text>
+            </View>
+
             {loading ? (
-              <ActivityIndicator size="large" color={C.gold} style={{ marginTop: 40 }} />
-            ) : notifications.length === 0 ? (
-              <Text style={{ textAlign: "center", color: C.textMuted, marginTop: 40, fontSize: 16 }}>لا توجد إشعارات حتى الآن</Text>
+              <View style={styles.loadingState}>
+                <ActivityIndicator size="large" color={C.primary} />
+                <Text style={styles.loadingText}>جاري تحميل الإشعارات...</Text>
+              </View>
+            ) : filteredNotifications.length === 0 ? (
+              <EmptyState />
             ) : (
-              notifications.map((item, idx) => (
-                <AnimatedNotificationCard key={item.id} item={item} index={idx} onPress={() => router.push(item.routeObj)} />
+              filteredNotifications.map((item, idx) => (
+                <AnimatedNotificationCard
+                  key={item.id}
+                  item={item}
+                  index={idx}
+                  onPress={() => router.push(item.routeObj)}
+                />
               ))
             )}
-           </View>
+          </View>
+
+          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
+// ═════════════════════════════════════════════════════════════════
+// STYLES
+// ═════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  bgLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 160 },
-  bgPrimary: { ...StyleSheet.absoluteFillObject, backgroundColor: C.maroon, borderBottomLeftRadius: 40, borderBottomRightRadius: 40 },
-  scrollContent: { paddingTop: 12, paddingBottom: 50 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 25, direction: "rtl" },
-  backBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.15)", justifyContent: "center", alignItems: "center" },
-  headerTitle: { fontSize: 22, fontWeight: "800", color: "#FFFFFF", letterSpacing: 0.5 },
-  placeholder: { width: 42 },
-  listContainer: { paddingHorizontal: 20, paddingTop: 10 },
-  cardOuter: { marginBottom: 16 },
-  card: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 20, shadowColor: "#08221f", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 15, elevation: 3, direction: "rtl" },
-  cardIconBox: { width: 56, height: 56, borderRadius: 18, justifyContent: "center", alignItems: "center", marginLeft: 16 },
-  cardContent: { flex: 1, alignItems: "flex-end" },
-  cardCourse: { fontSize: 12, fontWeight: "700", color: C.maroonGlow, marginBottom: 4, textAlign: 'right' },
-  cardTitle: { fontSize: 15, fontWeight: "800", color: C.text, marginBottom: 8, lineHeight: 22, textAlign: 'right' },
-  cardMeta: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
-  metaBadge: { flexDirection: "row", alignItems: "center", backgroundColor: C.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
-  metaText: { fontSize: 11, fontWeight: "600", color: C.textMuted, marginRight: 4 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.gold, position: "absolute", top: 24, left: 16 },
+  wrapper: { flex: 1, backgroundColor: C.bgMain },
+  topBgLayer: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 310,
+    backgroundColor: C.bgTop,
+    borderBottomLeftRadius: 40, borderBottomRightRadius: 40,
+    overflow: 'hidden',
+  },
+  topBgGlow: {
+    position: 'absolute', top: -40, right: -20,
+    width: 220, height: 220, borderRadius: 110,
+    backgroundColor: '#123B34', opacity: 0.55,
+  },
+
+  scrollContent: { paddingTop: 10 },
+
+  // ─── Header ───
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 24, paddingTop: 14, paddingBottom: 12,
+  },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  headerTitleContainer: { alignItems: 'flex-end' },
+  headerSubtitle: { fontSize: 12, color: '#97AEA9', marginBottom: 3, fontWeight: '600' },
+  headerTitle: { fontSize: 26, fontWeight: '900', color: C.white, letterSpacing: 0.3 },
+
+  // ─── Stats ───
+  statsRow: {
+    flexDirection: 'row-reverse', alignItems: 'center',
+    marginHorizontal: 24,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20, paddingVertical: 14, paddingHorizontal: 8,
+    marginBottom: 16,
+  },
+  statCard: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: '900', color: C.white, marginBottom: 2 },
+  statLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  statDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.12)' },
+
+  // ─── Filter ───
+  filterScroll: { marginBottom: 4 },
+  filterRow: {
+    flexDirection: 'row-reverse', paddingHorizontal: 20, gap: 8, paddingVertical: 8,
+  },
+  filterPill: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14,
+  },
+  filterPillActive: {
+    backgroundColor: C.primary,
+  },
+  filterPillInactive: {
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.borderLight,
+  },
+  filterText: { fontSize: 13, fontWeight: '700' },
+  filterTextActive: { color: C.white },
+  filterTextInactive: { color: C.textSecondary },
+  filterBadge: {
+    minWidth: 20, height: 20, borderRadius: 10,
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  filterBadgeText: { fontSize: 10, fontWeight: '800', color: C.textSecondary },
+
+  // ─── Content ───
+  content: {
+    backgroundColor: C.bgMain,
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    minHeight: 300,
+  },
+
+  // ─── Section ───
+  sectionRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
+    marginTop: 16, marginBottom: 14,
+  },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: C.textPrimary, flex: 1, textAlign: 'right' },
+  sectionCount: { fontSize: 13, fontWeight: '700', color: C.textSecondary },
+
+  // ─── Card ───
+  cardOuter: { width: '100%', marginBottom: 12 },
+  card: {
+    flexDirection: 'row-reverse',
+    backgroundColor: C.surface, borderRadius: 20, overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 14 },
+      android: { elevation: 3 },
+    }),
+  },
+  cardStrip: { width: 4 },
+  cardBody: { flex: 1, padding: 14, paddingRight: 14 },
+  cardRow: { flexDirection: 'row-reverse', alignItems: 'flex-start' },
+  cardIconBox: {
+    width: 50, height: 50, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center', marginLeft: 12,
+  },
+  cardContent: { flex: 1, alignItems: 'flex-end' },
+  cardTopRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginBottom: 6 },
+  categoryPill: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+  },
+  categoryPillText: { fontSize: 10, fontWeight: '800' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4 },
+  cardTitle: {
+    fontSize: 14, fontWeight: '800', color: C.textPrimary, marginBottom: 8,
+    lineHeight: 22, textAlign: 'right',
+  },
+  cardFooter: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, width: '100%' },
+  timeBadge: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 3,
+    backgroundColor: C.softGreen, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+  },
+  timeText: { fontSize: 10, fontWeight: '600', color: C.textSecondary },
+  cardSubtitle: { fontSize: 11, fontWeight: '600', color: C.textSecondary, flex: 1, textAlign: 'right' },
+  cardChevron: {
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12,
+  },
+
+  // ─── Empty ───
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 10 },
+  emptyIconWrap: {
+    width: 100, height: 100, borderRadius: 30,
+    backgroundColor: C.softGreen,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+  },
+  emptyIconInner: {
+    width: 72, height: 72, borderRadius: 22,
+    backgroundColor: C.white,
+    justifyContent: 'center', alignItems: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      android: { elevation: 2 },
+    }),
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: C.textPrimary },
+  emptyText: { fontSize: 13, color: C.textSecondary, fontWeight: '600', textAlign: 'center', lineHeight: 20 },
+
+  // ─── Loading ───
+  loadingState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 12 },
+  loadingText: { fontSize: 14, color: C.textSecondary, fontWeight: '600' },
 });

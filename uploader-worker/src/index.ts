@@ -19,10 +19,12 @@ export interface Env {
 	LECTURES: R2Bucket;
 	QUIZZES: R2Bucket;
 	PROFILES: R2Bucket;
+	PLAYLIST_THUMBNAIL: R2Bucket;
 	
 	VITE_R2_LECTURES_PUBLIC_URL: string;
 	VITE_R2_QUIZZES_PUBLIC_URL: string;
 	VITE_R2_PROFILES_PUBLIC_URL: string;
+	VITE_R2_PLAYLISTS_PUBLIC_URL: string;
 }
 
 // Ensure the bucket name exists locally on the env
@@ -30,6 +32,7 @@ const getBucket = (env: Env, type: string): R2Bucket | undefined => {
 	if (type === "LECTURES") return env.LECTURES;
 	if (type === "QUIZZES") return env.QUIZZES;
 	if (type === "PROFILES") return env.PROFILES;
+	if (type === "PLAYLIST_THUMBNAIL") return env.PLAYLIST_THUMBNAIL;
 	return undefined;
 };
 
@@ -38,6 +41,7 @@ const getPublicUrl = (env: Env, type: string): string => {
 	if (type === "LECTURES") baseUrl = env.VITE_R2_LECTURES_PUBLIC_URL;
 	else if (type === "QUIZZES") baseUrl = env.VITE_R2_QUIZZES_PUBLIC_URL;
 	else if (type === "PROFILES") baseUrl = env.VITE_R2_PROFILES_PUBLIC_URL;
+	else if (type === "PLAYLIST_THUMBNAIL") baseUrl = env.VITE_R2_PLAYLISTS_PUBLIC_URL;
 	return baseUrl ? baseUrl.replace(/\/+$/, "") : "";
 };
 

@@ -17,8 +17,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../../firebase";
+import { collection, doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "../../firebase";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -127,7 +127,7 @@ const OverallProgressCard = ({ subjects }: { subjects: any[] }) => {
 };
 
 // ─── Animated Subject Card ──────────────────────────────────────
-const AnimatedSubjectCard = ({ item, index }: { item: typeof FALLBACK_SUBJECTS[0]; index: number }) => {
+const AnimatedSubjectCard = ({ item, index }: { item: any; index: number }) => {
   const router = useRouter();
   const enterAnim = useRef(new Animated.Value(0)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
@@ -213,6 +213,22 @@ export default function SubjectsScreen() {
   const router = useRouter();
   const [subjects, setSubjects] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [freeTrial, setFreeTrial] = useState<any>(null);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      const unsub = onSnapshot(doc(db, "students", user.uid), (docSnap: any) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSubscription(data.subscription || { type: 'limited', allowedTeachers: [], allowedSubjects: [] });
+          setFreeTrial(data.freeTrial || null);
+        }
+      });
+      return () => unsub();
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -273,6 +289,36 @@ export default function SubjectsScreen() {
     }
   });
 
+  let finalSubjects = mergedSubjects;
+  let isFull = subscription && subscription.type === 'full';
+  let isSubActive = true;
+  if (subscription && subscription.endDate) {
+     isSubActive = new Date() < new Date(subscription.endDate);
+  }
+  
+  if (subscription && subscription.type === 'none') {
+     isFull = false;
+     isSubActive = false;
+  }
+
+  if (!isFull || !isSubActive) {
+      let allowedSubs: string[] = isSubActive ? (subscription?.allowedSubjects || []) : [];
+      let allowedTeach: string[] = isSubActive ? (subscription?.allowedTeachers || []) : [];
+      
+      if (freeTrial && freeTrial.isActive && new Date() < new Date(freeTrial.endDate)) {
+          allowedSubs = [...allowedSubs, ...(freeTrial.access?.allowedSubjects || [])];
+          allowedTeach = [...allowedTeach, ...(freeTrial.access?.allowedTeachers || [])];
+      }
+      
+      const normalize = (str: string) => typeof str === 'string' ? str.trim().replace(/^ال/, '') : '';
+
+      finalSubjects = mergedSubjects.filter(s => {
+          const isAllowedSub = s.title && allowedSubs.some(sub => normalize(sub) === normalize(s.title));
+          const isAllowedTeach = allowedTeach.includes(s.id);
+          return isAllowedSub || isAllowedTeach;
+      });
+  }
+
   const headerAnim = useRef(new Animated.Value(0)).current;
   const heroAnim = useRef(new Animated.Value(0)).current;
   const sectionAnim = useRef(new Animated.Value(0)).current;
@@ -308,7 +354,7 @@ export default function SubjectsScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>موادي</Text>
+              <Text style={styles.headerTitle}>مدرسين المادة</Text>
               <Text style={styles.headerSub}>المقررات الدراسية</Text>
             </View>
             <View style={styles.placeholder} />
@@ -319,7 +365,7 @@ export default function SubjectsScreen() {
             opacity: heroAnim,
             transform: [{ translateY: heroAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
           }}>
-            <OverallProgressCard subjects={mergedSubjects} />
+            <OverallProgressCard subjects={finalSubjects} />
           </Animated.View>
 
           {/* ─── Section Header ─────────────────── */}
@@ -328,12 +374,12 @@ export default function SubjectsScreen() {
             transform: [{ translateY: sectionAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
           }]}>
             <Text style={styles.sectionTitle}>المواد الدراسية</Text>
-            <Text style={styles.sectionCount}>{mergedSubjects.length} مادة</Text>     
+            <Text style={styles.sectionCount}>{finalSubjects.length} مادة</Text>     
           </Animated.View>
 
           {/* ─── Subjects Grid ──────────────────── */}
           <View style={styles.grid}>
-            {mergedSubjects.map((item, i) => (
+            {finalSubjects.map((item, i) => (
               <AnimatedSubjectCard key={item.id || i} item={item} index={i} />
             ))}
           </View>

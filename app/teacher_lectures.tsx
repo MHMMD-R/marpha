@@ -5,7 +5,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { CustomAlert as Alert } from '@/components/CustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../firebase';
 
@@ -57,6 +58,7 @@ export default function TeacherLecturesScreen() {
   const [lectures, setLectures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPlaylists, setExpandedPlaylists] = useState<Record<string, boolean>>({});
+  const [canUpload, setCanUpload] = useState(false);
 
   // Modal State
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -65,6 +67,7 @@ export default function TeacherLecturesScreen() {
   const [playlistName, setPlaylistName] = useState('');
   const [isCreatingNewPlaylist, setIsCreatingNewPlaylist] = useState(false);
   const [newPlaylistInput, setNewPlaylistInput] = useState('');
+  const [playlistThumbnailFile, setPlaylistThumbnailFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [selectedSubject, setSelectedSubject] = useState(IRAQI_SUBJECTS[0]);
   const [subjectAutoFilled, setSubjectAutoFilled] = useState(false);
   const [lectureFile, setLectureFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
@@ -84,6 +87,12 @@ export default function TeacherLecturesScreen() {
         }
       }
     }).catch(console.error);
+
+    const unsubTeacher = onSnapshot(doc(db, 'teachers', user.uid), (d) => {
+      if (d.exists()) {
+        setCanUpload(d.data().canUploadLectures === true);
+      }
+    });
 
     const q = query(collection(db, 'lectures'), where('teacherId', '==', user.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -112,7 +121,7 @@ export default function TeacherLecturesScreen() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => { unsubscribe(); unsubTeacher(); };
   }, []);
 
   const handleDeleteLecture = (lectureId: string) => {
@@ -208,10 +217,41 @@ export default function TeacherLecturesScreen() {
         throw new Error("Upload succeeded but no public URL was returned");
       }
 
+      let playlistThumbnailUrl = '';
+      if (playlistThumbnailFile) {
+        const thumbName = playlistThumbnailFile.fileName || playlistThumbnailFile.uri.split('/').pop() || `thumb_${Date.now()}.jpg`;
+        const thumbUploadUrl = `${DUMMY_API_BASE}/api/r2/upload?bucketType=PLAYLIST_THUMBNAIL&folder=requests_${user.uid}&fileName=${encodeURIComponent(thumbName)}`;
+        
+        let thumbPayload;
+        if (Platform.OS === 'web') {
+          const responseFile = await fetch(playlistThumbnailFile.uri);
+          const blob = await responseFile.blob();
+          const response = await fetch(thumbUploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": playlistThumbnailFile.mimeType || "image/jpeg" },
+            body: blob,
+          });
+          if (!response.ok) throw new Error(`Thumbnail upload failed: ${response.status}`);
+          thumbPayload = await response.json();
+        } else {
+          const uploadTask = await uploadAsync(thumbUploadUrl, playlistThumbnailFile.uri, {
+            httpMethod: 'PUT',
+            uploadType: FileSystemUploadType?.BINARY_CONTENT ?? 1,
+            headers: { "Content-Type": playlistThumbnailFile.mimeType || "image/jpeg" }
+          });
+          if (uploadTask.status !== 200) {
+            throw new Error(`Thumbnail upload failed with status ${uploadTask.status}`);
+          }
+          thumbPayload = JSON.parse(uploadTask.body);
+        }
+        playlistThumbnailUrl = thumbPayload.publicUrl || '';
+      }
+
       await addDoc(collection(db, 'lectures'), {
         title: lectureTitle.trim(),
         description: lectureDescription.trim(),
         playlistName: playlistName.trim() || 'محاضرات أخرى',
+        playlistThumbnailUrl: playlistThumbnailUrl,
         subject: selectedSubject,
         videoUrl: payload.publicUrl,
         duration: computedDuration || 'غير محدد',
@@ -224,6 +264,7 @@ export default function TeacherLecturesScreen() {
       setLectureTitle('');
       setLectureDescription('');
       setPlaylistName('');
+      setPlaylistThumbnailFile(null);
       setComputedDuration('');
       setLectureFile(null);
       setIsModalVisible(false);
@@ -398,7 +439,17 @@ export default function TeacherLecturesScreen() {
             <Text style={styles.headerTitle}>محاضراتي</Text>
           </View>
 
-          <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={() => setIsModalVisible(true)}>
+          <TouchableOpacity 
+             style={[styles.addBtn, !canUpload && { opacity: 0.5 }]} 
+             activeOpacity={0.8} 
+             onPress={() => {
+               if (!canUpload) {
+                 Alert.alert("No upload permission", "ليس لديك صلاحية لرفع المحاضرات. يرجى التواصل مع الإدارة.");
+                 return;
+               }
+               setIsModalVisible(true);
+             }}
+          >
             <Ionicons name="add" size={22} color={C.white} />
           </TouchableOpacity>
         </View>
@@ -455,7 +506,7 @@ export default function TeacherLecturesScreen() {
 
             <View style={styles.modalHeader}>
               <TouchableOpacity
-                onPress={() => { setIsModalVisible(false); setLectureTitle(''); setLectureDescription(''); setPlaylistName(''); setLectureFile(null); setComputedDuration(''); setIsCreatingNewPlaylist(false); setNewPlaylistInput(''); setSubjectAutoFilled(false); }}
+                onPress={() => { setIsModalVisible(false); setLectureTitle(''); setLectureDescription(''); setPlaylistName(''); setPlaylistThumbnailFile(null); setLectureFile(null); setComputedDuration(''); setIsCreatingNewPlaylist(false); setNewPlaylistInput(''); setSubjectAutoFilled(false); }}
                 disabled={isSubmitting}
                 style={styles.modalCloseBtn}
               >
@@ -509,10 +560,11 @@ export default function TeacherLecturesScreen() {
                 </View>
 
                 {isCreatingNewPlaylist ? (
-                  // New playlist text input
-                  <View style={styles.newPlaylistRow}>
-                    <TextInput
-                      style={[styles.input, { flex: 1 }]}
+                  // New playlist section
+                  <View style={styles.newPlaylistContainer}>
+                    <View style={styles.newPlaylistRow}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
                       placeholder="اسم القائمة الجديدة"
                       value={newPlaylistInput}
                       onChangeText={setNewPlaylistInput}
@@ -543,6 +595,43 @@ export default function TeacherLecturesScreen() {
                       activeOpacity={0.7}
                     >
                       <Ionicons name="close" size={18} color={C.danger} />
+                    </TouchableOpacity>
+                    </View>
+                    
+                    {/* Thumbnail Picker when creating new playlist */}
+                    <TouchableOpacity
+                      style={styles.thumbnailPickerBtn}
+                      activeOpacity={0.7}
+                      onPress={async () => {
+                        try {
+                          const result = await ImagePicker.launchImageLibraryAsync({
+                            mediaTypes: ['images'],
+                            allowsEditing: true,
+                            aspect: [16, 9],
+                            quality: 0.8,
+                          });
+                          if (!result.canceled && result.assets && result.assets.length > 0) {
+                            setPlaylistThumbnailFile(result.assets[0]);
+                          }
+                        } catch (e) {
+                          Alert.alert('خطأ', 'حدث خطأ أثناء تحديد الصورة.');
+                        }
+                      }}
+                    >
+                      {playlistThumbnailFile ? (
+                        <View style={styles.thumbnailSelectedRow}>
+                          <Ionicons name="image" size={16} color={C.success} />
+                          <Text style={styles.thumbnailSelectedText} numberOfLines={1}>
+                            {playlistThumbnailFile.fileName || 'تم تحديد الغلاف'}
+                          </Text>
+                          <Ionicons name="close-circle" size={16} color={C.danger} onPress={() => setPlaylistThumbnailFile(null)} />
+                        </View>
+                      ) : (
+                        <View style={styles.thumbnailEmptyRow}>
+                          <Ionicons name="image-outline" size={16} color={C.primary} />
+                          <Text style={styles.thumbnailEmptyText}>إضافة غلاف للقائمة (اختياري)</Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -896,7 +985,16 @@ const styles = StyleSheet.create({
   },
 
   // ─── Playlist Form Elements ───
+  newPlaylistContainer: { gap: 10 },
   newPlaylistRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
+  thumbnailPickerBtn: {
+    backgroundColor: C.softGold, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    borderWidth: 1, borderColor: C.borderLight, borderStyle: 'dashed'
+  },
+  thumbnailEmptyRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  thumbnailEmptyText: { fontSize: 13, color: C.primary, fontWeight: '600' },
+  thumbnailSelectedRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  thumbnailSelectedText: { fontSize: 13, color: C.success, fontWeight: '600', maxWidth: '70%' },
   newPlaylistConfirm: {
     width: 44, height: 44, borderRadius: 12,
     backgroundColor: C.success,

@@ -772,11 +772,12 @@ body {
 .modal-content {
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
   background: var(--bg-card) !important;
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .modal-header {

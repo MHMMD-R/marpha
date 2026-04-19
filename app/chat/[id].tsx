@@ -12,8 +12,7 @@ import {
     setDoc,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
-import {
-    ActivityIndicator,
+import { ActivityIndicator,
     Animated,
     Easing,
     FlatList,
@@ -25,8 +24,9 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+    Keyboard } from 'react-native';
+import { CustomAlert as Alert } from '@/components/CustomAlert';
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebase";
 
 const C = {
@@ -59,8 +59,16 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const currentUser = auth.currentUser;
   const sendScale = useRef(new Animated.Value(1)).current;
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const getChatId = () => {
     if (!currentUser) return "";
@@ -178,6 +186,99 @@ export default function ChatScreen() {
     });
   };
 
+  const handleReportUser = () => {
+    Alert.alert(
+      "الإبلاغ",
+      `هل أنت متأكد من أنك تريد الإبلاغ عن ${name}؟`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "إبلاغ",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await addDoc(collection(db, "reports"), {
+                reportedBy: currentUser?.uid,
+                reportedUserId: id,
+                type: "user",
+                createdAt: serverTimestamp(),
+              });
+              Alert.alert("تم", "تم إرسال البلاغ بنجاح. سنقوم بمراجعة الأمر.");
+            } catch (err) {
+              Alert.alert("خطأ", "حدث خطأ أثناء إرسال البلاغ.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBlockUser = () => {
+    Alert.alert(
+      "حظر المستخدم",
+      `هل أنت متأكد من أنك تريد حظر ${name}؟ لن يتمكن من التواصل معك مجدداً.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حظر",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await setDoc(doc(db, `users/${currentUser?.uid}/blocked`, id as string), {
+                blockedAt: serverTimestamp(),
+              });
+              Alert.alert("تم", "تم حظر المستخدم بنجاح.");
+              router.back(); // Exit chat after blocking
+            } catch (err) {
+              Alert.alert("خطأ", "حدث خطأ أثناء حظر المستخدم.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOptionsPress = () => {
+    Alert.alert(
+      "خيارات",
+      "ماذا تريد أن تفعل؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        { text: "الإبلاغ عن المستخدم", onPress: handleReportUser },
+        { text: "حظر المستخدم", style: "destructive", onPress: handleBlockUser },
+      ]
+    );
+  };
+
+  const handleReportMessage = (message: Message) => {
+    Alert.alert(
+      "الإبلاغ عن رسالة",
+      "هل تريد الإبلاغ عن هذه الرسالة؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "إبلاغ",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await addDoc(collection(db, "reports"), {
+                reportedBy: currentUser?.uid,
+                reportedUserId: message.senderId,
+                messageId: message.id,
+                messageText: message.text,
+                type: "message",
+                createdAt: serverTimestamp(),
+              });
+              Alert.alert("تم", "تم الإبلاغ عن الرسالة بنجاح.");
+            } catch (err) {
+              Alert.alert("خطأ", "حدث خطأ أثناء إرسال البلاغ.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMe = item.senderId === currentUser?.uid;
 
@@ -191,11 +292,14 @@ export default function ChatScreen() {
 
     return (
       <>
-        <View
+        <TouchableOpacity
           style={[
             styles.msgWrapper,
             isMe ? styles.msgWrapperMe : styles.msgWrapperOther,
           ]}
+          onLongPress={() => !isMe && handleReportMessage(item)}
+          activeOpacity={isMe ? 1 : 0.85}
+          delayLongPress={250}
         >
           {/* Avatar for other person */}
           {!isMe && (
@@ -251,7 +355,7 @@ export default function ChatScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {showDateSeparator && (
           <View style={styles.dateSeparator}>
@@ -272,11 +376,11 @@ export default function ChatScreen() {
       <View style={styles.topBgLayer} />
       <View style={styles.topBgGlow} />
 
-      <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
           {/* ─── Header ─── */}
           <View style={styles.header}>
             <TouchableOpacity
@@ -313,6 +417,14 @@ export default function ChatScreen() {
               )}
               <View style={styles.headerAvatarRing} />
             </View>
+
+            <TouchableOpacity
+              style={styles.optionsButton}
+              onPress={handleOptionsPress}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color={C.textPrimary} />
+            </TouchableOpacity>
           </View>
 
           {/* ─── Chat Content ─── */}
@@ -344,6 +456,8 @@ export default function ChatScreen() {
                 inverted={true}
                 contentContainerStyle={styles.listContainer}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
               />
             )}
 
@@ -382,8 +496,8 @@ export default function ChatScreen() {
               </Animated.View>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -480,6 +594,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  optionsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 6,
   },
 
   // ─── Content ───
@@ -660,7 +783,7 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 22 : 14,
+    paddingBottom: 12,
     backgroundColor: C.white,
     alignItems: "flex-end",
     gap: 10,

@@ -1,17 +1,29 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import * as ScreenCapture from 'expo-screen-capture';
+
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, ActivityIndicator, View, StyleSheet, I18nManager } from 'react-native';
 import 'react-native-reanimated';
+
+// Force RTL layout for Arabic
+if (!I18nManager.isRTL) {
+  try {
+    I18nManager.allowRTL(true);
+    I18nManager.forceRTL(true);
+  } catch (e) {
+    // ignore
+  }
+}
+
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { auth, db } from '../firebase';
 // @ts-ignore
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { GlobalAlertProvider } from '../components/CustomAlert';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -24,7 +36,6 @@ export default function RootLayout() {
   const [initializing, setInitializing] = useState(true);
   const pushToken = usePushNotifications();
 
-  ScreenCapture.usePreventScreenCapture();
 
   useEffect(() => {
     if (Platform.OS !== 'ios') {
@@ -42,12 +53,14 @@ export default function RootLayout() {
     // };
   }, []);
 
-  const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const [currentUser, setCurrentUser] = useState<any>(undefined);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
-  // Track the logged-in user to trigger token updates
+  // 1. Single Firebase Auth listener independent of navigation
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      setIsAuthReady(true);
     });
     return () => unsub();
   }, []);
@@ -76,36 +89,40 @@ export default function RootLayout() {
     }
   }, [pushToken, currentUser]);
 
+  // 2. Reactive Routing logic separated from Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      const inAuthGroup = segments[0] === 'login';
+    if (!isAuthReady) return; // Wait until firebase checks indexed db
 
-      if (!user && !inAuthGroup) {
-        // Redirect to login if user is not authenticated
-        router.replace('/login');
-        setInitializing(false);
-      } else if (user && inAuthGroup) {
-        // Redirect to app if user is authenticated based on role
+    const inAuthGroup = segments[0] === 'login';
+
+    if (!currentUser && !inAuthGroup) {
+      // Redirect to login if user is not authenticated
+      router.replace('/login');
+    } else if (currentUser && inAuthGroup) {
+      // If user is logged in, but on the login page (or navigating to it), calculate role and route them
+      const routeAuthenticatedUser = async () => {
         try {
-          const teacherDoc = await getDoc(doc(db, 'teachers', user.uid));
+          const teacherDoc = await getDoc(doc(db, 'teachers', currentUser.uid));
           if (teacherDoc.exists()) {
-             router.replace('/teacher_home');
+            router.replace('/teacher_home');
           } else {
-             router.replace('/(tabs)/');
+            const studentDoc = await getDoc(doc(db, 'students', currentUser.uid));
+            if (studentDoc.exists() && studentDoc.data().isSetupComplete === false) {
+              router.replace('/setup');
+            } else {
+              router.replace('/(tabs)');
+            }
           }
         } catch (error) {
-           router.replace('/(tabs)/');
+          router.replace('/(tabs)');
         }
-        setInitializing(false);
-      } else {
-        setInitializing(false);
-      }
-    });
+      };
+      
+      routeAuthenticatedUser();
+    }
+  }, [currentUser, isAuthReady, segments]);
 
-    return () => unsubscribe();
-  }, [segments]);
-
-  if (initializing) return null;
+  const isNavigatingAwayFromLogin = isAuthReady && currentUser && segments[0] === 'login';
 
   return (
     <SafeAreaProvider>
@@ -119,6 +136,12 @@ export default function RootLayout() {
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="profile" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
         </Stack>
+        {(!isAuthReady || isNavigatingAwayFromLogin) && (
+          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: colorScheme === 'dark' ? '#000' : '#fff', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+            <ActivityIndicator size="large" color="#12453D" />
+          </View>
+        )}
+        <GlobalAlertProvider />
         <StatusBar style="auto" />
       </ThemeProvider>
     </SafeAreaProvider>

@@ -18,14 +18,16 @@ export function usePushNotifications() {
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
 
   useEffect(() => {
-    registerForPushNotificationsAsync().then(token => setExpoPushToken(token));
+    registerForPushNotificationsAsync().then(token => {
+      if (token) setExpoPushToken(token);
+    });
   }, []);
 
   return expoPushToken;
 }
 
 async function registerForPushNotificationsAsync() {
-  let token;
+  let token: string | undefined;
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
@@ -36,35 +38,45 @@ async function registerForPushNotificationsAsync() {
     });
   }
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
-      return;
-    }
-    try {
-      let projectId =
-        Constants?.expoConfig?.extra?.eas?.projectId ??
-        Constants?.easConfig?.projectId;
-        
-      if (!projectId) {
-         console.warn("EAS project ID not found. Skipping push token fetch to avoid validation errors.");
-         return token;
-      }
-        
-      token = (await Notifications.getExpoPushTokenAsync({
-        projectId,
-      })).data;
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
+  if (!Device.isDevice) {
     console.log('Must use physical device for Push Notifications');
+    return token;
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    console.warn('Push notification permission denied.');
+    return token;
+  }
+
+  try {
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ??
+      Constants?.easConfig?.projectId;
+
+    if (!projectId) {
+      console.warn('EAS project ID not found. Cannot fetch push token.');
+      return token;
+    }
+
+    // getExpoPushTokenAsync works for BOTH Expo Go and standalone APK/IPA builds.
+    // The token format is different between environments:
+    //   - Expo Go: ExponentPushToken[...]
+    //   - Standalone APK: ExponentPushToken[...] (FCM-backed)
+    // Each time the app is opened, the latest token is registered in Firestore,
+    // ensuring APK installs always have their correct token stored.
+    const pushTokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    token = pushTokenData.data;
+    console.log('[Push] Registered token:', token);
+  } catch (e: any) {
+    console.error('[Push] Failed to get push token:', e?.message || e);
   }
 
   return token;

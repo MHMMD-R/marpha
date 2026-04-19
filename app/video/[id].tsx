@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-    ActivityIndicator,
-    Alert,
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { ActivityIndicator,
+    BackHandler,
     Dimensions,
     GestureResponderEvent,
+    I18nManager,
     Image,
     LayoutChangeEvent,
     Platform,
@@ -16,8 +17,8 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
-} from 'react-native';
+    View } from 'react-native';
+import { CustomAlert as Alert } from '@/components/CustomAlert';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../../firebase';
@@ -26,7 +27,7 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const VIDEO_HEIGHT = SCREEN_W * (9 / 16);
 const DEFAULT_VIDEO_SOURCE =
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-const QR_SIZE = 64;
+const QR_SIZE = 40;
 const QR_MARGIN = 10;
 
 const C = {
@@ -71,6 +72,8 @@ type LessonItem = {
   duration: string;
   thumbnail: string;
   locked?: boolean;
+  watched?: boolean;
+  isCurrent?: boolean;
 };
 
 const THUMBNAILS = [
@@ -136,6 +139,7 @@ export default function VideoPlayerScreen() {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [upcomingLessons, setUpcomingLessons] = useState<LessonItem[]>(buildFallbackLessons());
   const [playlistContext, setPlaylistContext] = useState<string>('');
+  const [allPlaylistLessons, setAllPlaylistLessons] = useState<LessonItem[]>([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [timelineWidth, setTimelineWidth] = useState(0);
@@ -143,6 +147,14 @@ export default function VideoPlayerScreen() {
   const [mainQr, setMainQr] = useState({ visible: false, position: { top: QR_MARGIN, left: QR_MARGIN } });
   const [ghostQr, setGhostQr] = useState({ visible: false, position: { top: QR_MARGIN, left: QR_MARGIN } });
   const videoViewRef = useRef<VideoView>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPlaylistExpanded, setIsPlaylistExpanded] = useState(false);
+  const [videoContainerSize, setVideoContainerSize] = useState({ width: SCREEN_W, height: VIDEO_HEIGHT });
+  const videoContainerSizeRef = useRef(videoContainerSize);
+
+  useEffect(() => {
+    videoContainerSizeRef.current = videoContainerSize;
+  }, [videoContainerSize]);
 
   const source = useMemo(() => {
     const rawSource = lecture?.videoUrl || lecture?.link;
@@ -181,6 +193,14 @@ export default function VideoPlayerScreen() {
           if (mounted && currentLectureSnap.exists()) {
             currentLectureData = currentLectureSnap.data() as LectureDoc;
             setLecture(currentLectureData);
+            // Load per-user watched state
+            const user = auth.currentUser;
+            if (user) {
+              const progressDoc = await getDoc(doc(db, 'lecture_progress', `${user.uid}_${lectureId}`));
+              if (progressDoc.exists() && progressDoc.data().watched) {
+                setIsWatched(true);
+              }
+            }
           }
         }
 
@@ -194,14 +214,14 @@ export default function VideoPlayerScreen() {
           setPlaylistContext(currentLectureData.playlistName);
           const playlistQuery = query(
             collection(db, 'lectures'),
-            where('status', 'in', ['accepted', 'active']),
             where('playlistName', '==', currentLectureData.playlistName),
-            limit(20)
+            limit(30)
           );
           const pSnap = await getDocs(playlistQuery);
           if (!mounted) return;
 
-          let docs = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          let docs = pSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter((d: any) => d.status === 'accepted' || d.status === 'active');
           docs.sort((a: any, b: any) => {
             const tA = (a.createdAt?.seconds || a.createdAt || 0);
             const tB = (b.createdAt?.seconds || b.createdAt || 0);
@@ -216,18 +236,46 @@ export default function VideoPlayerScreen() {
           if (relatedDocs.length === 0) {
             relatedDocs = docs.filter(d => d.id !== lectureId);
           }
+
+          // Fetch watched status for all playlist items
+          const plUser = auth.currentUser;
+          const watchedMap: Record<string, boolean> = {};
+          if (plUser) {
+            const watchPromises = docs.map(async (d: any) => {
+              try {
+                const pDoc = await getDoc(doc(db, 'lecture_progress', `${plUser.uid}_${d.id}`));
+                if (pDoc.exists() && pDoc.data().watched) {
+                  watchedMap[d.id] = true;
+                }
+              } catch {}
+            });
+            await Promise.all(watchPromises);
+          }
+          if (!mounted) return;
+
+          const fullPlaylist: LessonItem[] = docs.map((lesson: any, idx: number) => ({
+            id: lesson.id,
+            title: lesson.title?.trim() || `الدرس ${idx + 1}`,
+            duration: lesson.duration?.trim() || 'غير محدد',
+            thumbnail: THUMBNAILS[idx % THUMBNAILS.length],
+            locked: false,
+            watched: watchedMap[lesson.id] || false,
+            isCurrent: lesson.id === lectureId,
+          }));
+
+          setAllPlaylistLessons(fullPlaylist);
         }
 
         if (relatedDocs.length === 0 && currentLectureData?.subject) {
           const subjectQuery = query(
             collection(db, 'lectures'),
-            where('status', 'in', ['accepted', 'active']),
             where('subject', '==', currentLectureData.subject),
-            limit(6)
+            limit(15)
           );
           const sSnap = await getDocs(subjectQuery);
           if (!mounted) return;
-          let docs = sSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.id !== lectureId);
+          let docs = sSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter((d: any) => (d.status === 'accepted' || d.status === 'active') && d.id !== lectureId);
           docs.sort((a: any, b: any) => {
             const tA = (a.createdAt?.seconds || a.createdAt || 0);
             const tB = (b.createdAt?.seconds || b.createdAt || 0);
@@ -237,10 +285,11 @@ export default function VideoPlayerScreen() {
         }
 
         if (relatedDocs.length === 0) {
-          const basicQuery = query(collection(db, 'lectures'), where('status', 'in', ['accepted', 'active']), limit(6));
+          const basicQuery = query(collection(db, 'lectures'), limit(15));
           const bSnap = await getDocs(basicQuery);
           if (!mounted) return;
-          relatedDocs = bSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.id !== lectureId);
+          relatedDocs = bSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter((d: any) => (d.status === 'accepted' || d.status === 'active') && d.id !== lectureId);
         }
 
         const formattedRelated = relatedDocs.slice(0, 10).map((lesson, index) => ({
@@ -346,8 +395,9 @@ export default function VideoPlayerScreen() {
     let stopped = false;
 
     const getRandomPosition = () => {
-      const maxLeft = Math.max(QR_MARGIN, SCREEN_W - QR_SIZE - QR_MARGIN);
-      const maxTop = Math.max(QR_MARGIN, VIDEO_HEIGHT - QR_SIZE - QR_MARGIN);
+      const size = videoContainerSizeRef.current;
+      const maxLeft = Math.max(QR_MARGIN, size.width - QR_SIZE - QR_MARGIN);
+      const maxTop = Math.max(QR_MARGIN, size.height - QR_SIZE - QR_MARGIN);
       return {
         left: randomBetween(QR_MARGIN, maxLeft),
         top: randomBetween(QR_MARGIN, maxTop),
@@ -403,6 +453,19 @@ export default function VideoPlayerScreen() {
   const progressPercent = isWatched ? 100 : 65;
   const playbackProgress = duration > 0 ? Math.min(Math.max(currentTime / duration, 0), 1) : 0;
 
+  // Playlist progress (recomputed live when isWatched toggles)
+  const watchedInPlaylist = allPlaylistLessons.filter(l =>
+    l.isCurrent ? isWatched : l.watched
+  ).length;
+  const playlistProgressPercent = allPlaylistLessons.length > 0
+    ? Math.round((watchedInPlaylist / allPlaylistLessons.length) * 100)
+    : 0;
+
+  const activeList = allPlaylistLessons.length > 0 ? allPlaylistLessons : upcomingLessons;
+  const currentIndex = activeList.findIndex((l: any) => l.isCurrent);
+  const nextItem = activeList[currentIndex + 1] || activeList[0];
+  const hasPlaylist = activeList.length > 0 && !activeList[0]?.id.startsWith('fallback-');
+
   const handleTogglePlay = () => {
     setControlsVisible(true);
 
@@ -420,16 +483,35 @@ export default function VideoPlayerScreen() {
     }
   };
 
-  const handleOpenFullscreen = async () => {
+  const handleToggleFullscreen = async () => {
     setControlsVisible(true);
 
     try {
-      await videoViewRef.current?.enterFullscreen();
+      if (isFullscreen) {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        setIsFullscreen(false);
+      } else {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        setIsFullscreen(true);
+      }
     } catch (error) {
-      console.error('Failed to enter fullscreen:', error);
+      console.error('Failed to change fullscreen:', error);
       Alert.alert('خطأ', 'تعذر فتح وضع ملء الشاشة.');
     }
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isFullscreen) {
+        handleToggleFullscreen();
+        return true; 
+      }
+      return false; 
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [isFullscreen]);
 
   const handleSeekBy = (offsetSeconds: number) => {
     const max = duration > 0 ? duration : Math.max(currentTime + offsetSeconds, 0);
@@ -452,7 +534,10 @@ export default function VideoPlayerScreen() {
       return;
     }
 
-    const ratio = Math.min(Math.max(event.nativeEvent.locationX / timelineWidth, 0), 1);
+    let ratio = event.nativeEvent.locationX / timelineWidth;
+    // locationX always measures from the physical left edge, so invert for RTL
+    if (I18nManager.isRTL) ratio = 1 - ratio;
+    ratio = Math.min(Math.max(ratio, 0), 1);
     const target = ratio * duration;
 
     try {
@@ -491,8 +576,9 @@ export default function VideoPlayerScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="light-content" backgroundColor={C.topOverlay} />
 
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safeArea} edges={isFullscreen ? [] : ['top', 'bottom']}>
         {/* ─── Top Header ─── */}
+        {!isFullscreen && (
         <View style={styles.topAppBar}>
           <TouchableOpacity style={styles.topAppBarButton} activeOpacity={0.85} onPress={() => router.back()}>
             <Ionicons name="arrow-forward" size={22} color={C.white} />
@@ -503,14 +589,15 @@ export default function VideoPlayerScreen() {
             <Text style={styles.topAppBarTitle} numberOfLines={1}>{lectureTitle}</Text>
           </View>
 
-          <TouchableOpacity style={styles.topAppBarButton} activeOpacity={0.85} onPress={handleOpenFullscreen}>
-            <Ionicons name="expand-outline" size={20} color={C.white} />
-          </TouchableOpacity>
+          <View style={{ width: 42 }} />
         </View>
+        )}
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* ─── Video Player ─── */}
-          <View style={styles.videoSection}>
+        {/* ─── Video Player ─── */}
+        <View 
+          style={isFullscreen ? styles.videoSectionFullscreen : styles.videoSection}
+          onLayout={(e) => setVideoContainerSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+        >
             <VideoView
               ref={videoViewRef}
               style={StyleSheet.absoluteFillObject}
@@ -551,19 +638,12 @@ export default function VideoPlayerScreen() {
                   <Text style={styles.playerTitleInline} numberOfLines={1}>
                     {lectureTitle}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.playerIconButton}
-                    activeOpacity={0.85}
-                    onPress={handleOpenFullscreen}
-                  >
-                    <Ionicons name="expand-outline" size={18} color={C.white} />
-                  </TouchableOpacity>
                 </View>
 
                 {/* Center controls */}
                 <View style={styles.playerCenterControls} pointerEvents="box-none">
-                  <TouchableOpacity style={styles.seekButton} activeOpacity={0.85} onPress={() => handleSeekBy(10)}>
-                    <Ionicons name="play-forward" size={22} color={C.white} />
+                  <TouchableOpacity style={styles.seekButton} activeOpacity={0.85} onPress={() => handleSeekBy(-10)}>
+                    <Ionicons name="play-back" size={22} color={C.white} />
                     <Text style={styles.seekText}>10</Text>
                   </TouchableOpacity>
 
@@ -571,8 +651,8 @@ export default function VideoPlayerScreen() {
                     <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color={C.topOverlay} />
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.seekButton} activeOpacity={0.85} onPress={() => handleSeekBy(-10)}>
-                    <Ionicons name="play-back" size={22} color={C.white} />
+                  <TouchableOpacity style={styles.seekButton} activeOpacity={0.85} onPress={() => handleSeekBy(10)}>
+                    <Ionicons name="play-forward" size={22} color={C.white} />
                     <Text style={styles.seekText}>10</Text>
                   </TouchableOpacity>
                 </View>
@@ -603,149 +683,187 @@ export default function VideoPlayerScreen() {
                   <TouchableOpacity
                     style={styles.playerIconButton}
                     activeOpacity={0.85}
-                    onPress={handleOpenFullscreen}
+                    onPress={handleToggleFullscreen}
                   >
-                    <Ionicons name="scan-outline" size={17} color={C.white} />
+                    <Ionicons name={isFullscreen ? "contract" : "expand"} size={18} color={C.white} />
                   </TouchableOpacity>
                 </View>
               </View>
             ) : null}
           </View>
 
-          {/* ─── Lesson Info Section ─── */}
-          <View style={styles.lessonInfoSection}>
-            {/* Subject badge */}
-            {lectureSubject ? (
-              <View style={styles.subjectBadgeContainer}>
-                <View style={styles.subjectBadge}>
-                  <Ionicons name="book" size={12} color={C.accent} />
-                  <Text style={styles.subjectBadgeText}>{lectureSubject}</Text>
+          {!isFullscreen && (
+          <View style={{ flex: 1, backgroundColor: C.bgMain }}>
+            {isPlaylistExpanded ? (
+              <View style={styles.expandedPlaylistOverlay}>
+                <View style={styles.expandedPlaylistHeader}>
+                  <View style={styles.expandedPlaylistHeaderTitles}>
+                    <Text style={styles.expandedPlaylistTitle} numberOfLines={1}>
+                      {playlistContext || 'فيديوهات ذات صلة'} • {currentIndex + 1}/{activeList.length}
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.closePlaylistIcon} onPress={() => setIsPlaylistExpanded(false)}>
+                    <Ionicons name="close" size={28} color={C.white} />
+                  </TouchableOpacity>
                 </View>
+                <ScrollView contentContainerStyle={styles.expandedPlaylistScroll}>
+                  {activeList.map((item, index) => {
+                    const itemWatched = item.isCurrent ? isWatched : item.watched;
+                    const isCurrent = item.isCurrent || false;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[styles.plItemExpanded, isCurrent && styles.plItemCurrentExpanded]}
+                        activeOpacity={isCurrent ? 1 : 0.7}
+                        onPress={() => {
+                           if(!isCurrent) {
+                             handleOpenLesson(item);
+                             setIsPlaylistExpanded(false);
+                           }
+                        }}
+                      >
+                        <View style={styles.plItemIndexExpanded}>
+                          {isCurrent ? (
+                            <Ionicons name="play" size={12} color={C.white} />
+                          ) : itemWatched ? (
+                            <Ionicons name="checkmark-circle" size={16} color={C.success} />
+                          ) : (
+                            <Text style={styles.plItemNumberExpanded}>{index + 1}</Text>
+                          )}
+                        </View>
+                        <View style={styles.plThumbWrapExpanded}>
+                          <Image source={{ uri: item.thumbnail }} style={styles.plThumbExpanded} resizeMode="cover" />
+                        </View>
+                        <View style={styles.plItemTextWrapExpanded}>
+                          <Text
+                            style={[
+                              styles.plItemTitleExpanded,
+                              isCurrent && styles.plItemTitleActiveExpanded,
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {item.title}
+                          </Text>
+                          <Text style={styles.plItemDurationExpanded}>{item.duration}</Text>
+                        </View>
+                        <Ionicons name="ellipsis-vertical" size={16} color={C.textSecondary} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
               </View>
-            ) : null}
-
-            <Text style={styles.lessonTitle}>{lectureTitle}</Text>
-            <Text style={styles.lessonDescription}>{lectureDescription}</Text>
-
-            {/* Quick action buttons */}
-            <View style={styles.actionButtonsRow}>
-              <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={handleOpenFullscreen}>
-                <View style={[styles.actionIconCircle, { backgroundColor: C.softGold }]}>
-                  <Ionicons name="expand-outline" size={18} color={C.accent} />
-                </View>
-                <Text style={styles.actionButtonLabel}>ملء الشاشة</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={handleTogglePlay}>
-                <View style={[styles.actionIconCircle, { backgroundColor: C.softGreen }]}>
-                  <Ionicons name={isPlaying ? "pause" : "play"} size={18} color={C.primary} />
-                </View>
-                <Text style={styles.actionButtonLabel}>{isPlaying ? 'إيقاف' : 'تشغيل'}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={() => handleSeekBy(-10)}>
-                <View style={[styles.actionIconCircle, { backgroundColor: '#F0EDFF' }]}>
-                  <Ionicons name="play-back" size={18} color="#6C5CE7" />
-                </View>
-                <Text style={styles.actionButtonLabel}>رجوع 10ث</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={() => handleSeekBy(10)}>
-                <View style={[styles.actionIconCircle, { backgroundColor: '#FFF0F0' }]}>
-                  <Ionicons name="play-forward" size={18} color="#E74C3C" />
-                </View>
-                <Text style={styles.actionButtonLabel}>تقديم 10ث</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Progress card */}
-            <View style={styles.progressCard}>
-              <View style={styles.progressHeaderRow}>
-                <View style={styles.progressLabelRow}>
-                  <Ionicons name="analytics" size={16} color={C.primary} />
-                  <Text style={styles.progressLabel}>تقدمك في الدورة</Text>
-                </View>
-                <View style={styles.progressPercentBadge}>
-                  <Text style={styles.progressPercentText}>{progressPercent}%</Text>
-                </View>
-              </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-              </View>
-              <View style={styles.progressFooterRow}>
-                <Text style={styles.progressFooterText}>
-                  {isWatched ? 'تم إكمال الدرس بنجاح!' : `${100 - progressPercent}% متبقي`}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* ─── Upcoming Lessons ─── */}
-          <View style={styles.upcomingSection}>
-            <View style={styles.upcomingHeaderRow}>
-              <View style={styles.upcomingTitleRow}>
-                <Ionicons name={playlistContext ? "folder-open" : "list"} size={18} color={C.primary} />
-                <Text style={styles.upcomingTitle}>
-                  {playlistContext ? `قائمة التشغيل: ${playlistContext}` : 'الدروس القادمة'}
-                </Text>
-              </View>
-              <View style={styles.remainingPill}>
-                <Text style={styles.remainingPillText}>{upcomingLessons.length} درس</Text>
-              </View>
-            </View>
-
-            <View style={styles.upcomingList}>
-              {upcomingLessons.map((item, index) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.lessonItem, index === 0 && styles.lessonItemHighlighted]}
-                  activeOpacity={0.8}
-                  onPress={() => handleOpenLesson(item)}
-                >
-                  <View style={styles.lessonThumbWrap}>
-                    <Image source={{ uri: item.thumbnail }} style={styles.lessonThumb} resizeMode="cover" />
-                    {item.locked ? (
-                      <View style={styles.lockOverlay}>
-                        <View style={styles.lockIconCircle}>
-                          <Ionicons name="lock-closed" size={14} color={C.white} />
+            ) : (
+              <>
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                  {/* ─── Lesson Info Section ─── */}
+                  <View style={styles.lessonInfoSection}>
+                    {lectureSubject ? (
+                      <View style={styles.subjectBadgeContainer}>
+                        <View style={styles.subjectBadge}>
+                          <Ionicons name="book" size={12} color={C.accent} />
+                          <Text style={styles.subjectBadgeText}>{lectureSubject}</Text>
                         </View>
                       </View>
-                    ) : (
-                      <View style={styles.playOverlay}>
-                        <Ionicons name="play" size={16} color={C.white} />
-                      </View>
-                    )}
-                  </View>
+                    ) : null}
 
-                  <View style={styles.lessonItemTextWrap}>
-                    <Text style={styles.lessonItemTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <View style={styles.lessonDurationRow}>
-                      <Ionicons name="time-outline" size={12} color={C.textSecondary} />
-                      <Text style={styles.lessonItemDuration}>{item.duration}</Text>
+                    <Text style={styles.lessonTitle}>{lectureTitle}</Text>
+                    <Text style={styles.lessonDescription}>{lectureDescription}</Text>
+
+                    <View style={styles.actionButtonsRow}>
+                      <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={handleTogglePlay}>
+                        <View style={[styles.actionIconCircle, { backgroundColor: C.softGreen }]}>
+                          <Ionicons name={isPlaying ? "pause" : "play"} size={18} color={C.primary} />
+                        </View>
+                        <Text style={styles.actionButtonLabel}>{isPlaying ? 'إيقاف' : 'تشغيل'}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={() => handleSeekBy(10)}>
+                        <View style={[styles.actionIconCircle, { backgroundColor: '#FFF0F0' }]}>
+                          <Ionicons name="play-forward" size={18} color="#E74C3C" />
+                        </View>
+                        <Text style={styles.actionButtonLabel}>تقديم 10ث</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={() => handleSeekBy(-10)}>
+                        <View style={[styles.actionIconCircle, { backgroundColor: '#F0EDFF' }]}>
+                          <Ionicons name="play-back" size={18} color="#6C5CE7" />
+                        </View>
+                        <Text style={styles.actionButtonLabel}>رجوع 10ث</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.progressCard}>
+                      <View style={styles.progressHeaderRow}>
+                        <View style={styles.progressLabelRow}>
+                          <Ionicons name="analytics" size={16} color={C.primary} />
+                          <Text style={styles.progressLabel}>تقدمك في الدورة</Text>
+                        </View>
+                        <View style={styles.progressPercentBadge}>
+                          <Text style={styles.progressPercentText}>{progressPercent}%</Text>
+                        </View>
+                      </View>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                      </View>
+                      <View style={styles.progressFooterRow}>
+                        <Text style={styles.progressFooterText}>
+                          {isWatched ? 'تم إكمال الدرس بنجاح!' : `${100 - progressPercent}% متبقي`}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
-                  <View style={styles.lessonArrow}>
-                    <Ionicons name="chevron-back" size={16} color={C.textSecondary} />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+                  <TouchableOpacity
+                    style={[styles.completeButton, isWatched && styles.completeButtonDone]}
+                    activeOpacity={0.85}
+                    onPress={async () => {
+                      const newVal = !isWatched;
+                      setIsWatched(newVal);
+                      const user = auth.currentUser;
+                      if (lectureId && user) {
+                        try {
+                          await setDoc(doc(db, 'lecture_progress', `${user.uid}_${lectureId}`), {
+                            studentId: user.uid,
+                            lectureId: lectureId,
+                            watched: newVal,
+                            updatedAt: new Date().toISOString(),
+                          });
+                        } catch (e) {
+                          console.error('Failed to update watched status:', e);
+                        }
+                      }
+                    }}
+                  >
+                    <Ionicons name={isWatched ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={C.white} />
+                    <Text style={styles.completeButtonText}>{isWatched ? 'تم إكمال الدرس ✓' : 'تحديد كمكتمل'}</Text>
+                  </TouchableOpacity>
+                </ScrollView>
 
-          {/* ─── Complete Button ─── */}
-          <TouchableOpacity
-            style={[styles.completeButton, isWatched && styles.completeButtonDone]}
-            activeOpacity={0.85}
-            onPress={() => setIsWatched(prev => !prev)}
-          >
-            <Ionicons name={isWatched ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={C.white} />
-            <Text style={styles.completeButtonText}>{isWatched ? 'تم إكمال الدرس ✓' : 'تحديد كمكتمل'}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
+                {hasPlaylist && (
+                  <TouchableOpacity 
+                    style={styles.floatingPlaylistCollapsed} 
+                    activeOpacity={0.9} 
+                    onPress={() => setIsPlaylistExpanded(true)}
+                  >
+                    <View style={styles.floatingPlaylistIcon}>
+                      <Ionicons name="list" size={24} color={C.white} />
+                    </View>
+                    <View style={styles.floatingPlaylistTextCol}>
+                      <Text style={styles.floatingPlaylistNext} numberOfLines={1}>
+                        التالي: {nextItem?.title || 'غير محدد'}
+                      </Text>
+                      <Text style={styles.floatingPlaylistMeta}>
+                        {playlistContext || 'فيديوهات ذات صلة'} • {currentIndex + 1}/{activeList.length}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-up" size={24} color={C.white} />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+          )}
+        </SafeAreaView>
     </View>
   );
 }
@@ -754,6 +872,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: C.bgMain,
+    direction: 'rtl',
   },
   safeArea: {
     flex: 1,
@@ -814,6 +933,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  videoSectionFullscreen: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: C.playerBg,
+    position: 'relative',
+    overflow: 'hidden',
+  },
   playerOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
@@ -831,7 +957,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   playerTopControls: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
@@ -854,7 +980,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
   playerCenterControls: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 28,
@@ -891,7 +1017,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   playerBottomControls: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingBottom: 12,
@@ -938,6 +1064,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     minWidth: 34,
+    textAlign: 'center',
   },
 
   // ─── Lesson Info Section ───
@@ -947,11 +1074,11 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   subjectBadgeContainer: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     marginBottom: 10,
   },
   subjectBadge: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     backgroundColor: C.softGold,
@@ -982,7 +1109,7 @@ const styles = StyleSheet.create({
 
   // ─── Action Buttons ───
   actionButtonsRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
   },
@@ -1023,13 +1150,13 @@ const styles = StyleSheet.create({
     }),
   },
   progressHeaderRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
   },
   progressLabelRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
@@ -1061,7 +1188,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.accent,
   },
   progressFooterRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     marginTop: 10,
   },
   progressFooterText: {
@@ -1070,131 +1197,167 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ─── Upcoming Section ───
-  upcomingSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    paddingTop: 12,
-  },
-  upcomingHeaderRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  upcomingTitleRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 8,
-  },
-  upcomingTitle: {
-    fontSize: 18,
-    color: C.textPrimary,
-    fontWeight: '800',
-  },
-  remainingPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: C.softGreen,
-  },
-  remainingPillText: {
-    color: C.primary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  upcomingList: {
-    gap: 10,
-  },
-  lessonItem: {
+  // ─── YouTube-Style Playlist Panel ───
+  plPanel: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
     backgroundColor: C.surface,
-    borderRadius: 18,
-    padding: 12,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: C.borderLight,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 14,
       },
-      android: { elevation: 1 },
+      android: { elevation: 5 },
     }),
   },
-  lessonItemHighlighted: {
-    borderColor: C.accent,
-    borderWidth: 1.5,
-    backgroundColor: C.softGold,
+  plHeader: {
+    backgroundColor: C.topOverlay,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
   },
-  lessonThumbWrap: {
-    width: 96,
-    height: 66,
-    borderRadius: 12,
+  plHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  plTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  plHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: C.white,
+    flex: 1,
+    textAlign: 'right',
+  },
+  plCountBadge: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginStart: 10,
+  },
+  plCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  plStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  plStatsText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '600',
+  },
+  plProgressTrack: {
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden',
-    marginLeft: 12,
+  },
+  plProgressFill: {
+    height: '100%',
+    backgroundColor: C.accent,
+    borderRadius: 1.5,
+  },
+  plItemsWrap: {
+    paddingVertical: 4,
+  },
+  plItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.borderLight,
     position: 'relative',
   },
-  lessonThumb: {
-    width: '100%',
-    height: '100%',
+  plItemCurrent: {
+    backgroundColor: '#EBF5F2',
   },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lockIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playOverlay: {
+  plCurrentBar: {
     position: 'absolute',
-    bottom: 6,
-    left: 6,
+    right: 0,
+    top: 8,
+    bottom: 8,
+    width: 3,
+    borderRadius: 1.5,
+    backgroundColor: C.accent,
+  },
+  plItemIndex: {
     width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
     alignItems: 'center',
-  },
-  lessonItemTextWrap: {
-    flex: 1,
     justifyContent: 'center',
   },
-  lessonItemTitle: {
-    fontSize: 14,
-    color: C.textPrimary,
-    fontWeight: '800',
-    textAlign: 'right',
-    marginBottom: 5,
-  },
-  lessonDurationRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 5,
-  },
-  lessonItemDuration: {
-    fontSize: 11,
+  plItemNumber: {
+    fontSize: 12,
     color: C.textSecondary,
     fontWeight: '600',
   },
-  lessonArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: C.softGreen,
-    justifyContent: 'center',
+  plThumbWrap: {
+    width: 72,
+    height: 42,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginHorizontal: 8,
+    position: 'relative',
+    backgroundColor: '#E8EDEC',
+  },
+  plThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  plNowPlaying: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
-    marginRight: 4,
+    justifyContent: 'center',
+  },
+  plItemTextWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingEnd: 8,
+  },
+  plItemTitle: {
+    fontSize: 13,
+    color: C.textPrimary,
+    fontWeight: '700',
+    textAlign: 'right',
+    lineHeight: 19,
+  },
+  plItemTitleActive: {
+    color: C.primary,
+    fontWeight: '800',
+  },
+  plItemTitleWatched: {
+    color: C.textSecondary,
+  },
+  plItemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  plItemDuration: {
+    fontSize: 11,
+    color: C.textSecondary,
+    fontWeight: '500',
   },
 
   // ─── Complete Button ───
@@ -1204,7 +1367,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 18,
     backgroundColor: C.primary,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
@@ -1237,5 +1400,125 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+
+  // ─── Floating Playlist (Collapsed) ───
+  floatingPlaylistCollapsed: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingRight: 20,
+    elevation: 10,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+    }),
+  },
+  floatingPlaylistIcon: {
+    marginLeft: 16,
+  },
+  floatingPlaylistTextCol: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  floatingPlaylistNext: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'left',
+  },
+  floatingPlaylistMeta: {
+    color: '#A0A0A0',
+    fontSize: 12,
+    textAlign: 'left',
+  },
+
+  // ─── Expanded Playlist Overlay ───
+  expandedPlaylistOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0F0F13',
+    zIndex: 100,
+  },
+  expandedPlaylistHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 16,
+  },
+  expandedPlaylistHeaderTitles: {
+    flex: 1,
+    alignItems: 'flex-start',
+    marginRight: 16,
+  },
+  expandedPlaylistTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 4,
+    textAlign: 'left',
+  },
+  closePlaylistIcon: {
+    padding: 4,
+  },
+  expandedPlaylistScroll: {
+    paddingBottom: 40,
+  },
+  plItemExpanded: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  plItemCurrentExpanded: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  plItemIndexExpanded: {
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plItemNumberExpanded: {
+    color: '#A0A0A0',
+    fontSize: 12,
+  },
+  plThumbWrapExpanded: {
+    width: 120,
+    height: 68,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginHorizontal: 12,
+    backgroundColor: '#1E1E1E',
+  },
+  plThumbExpanded: {
+    width: '100%',
+    height: '100%',
+  },
+  plItemTextWrapExpanded: {
+    flex: 1,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  plItemTitleExpanded: {
+    color: C.white,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'left',
+  },
+  plItemTitleActiveExpanded: {
+    color: C.white,
+    fontWeight: '900',
+  },
+  plItemDurationExpanded: {
+    color: '#A0A0A0',
+    fontSize: 12,
   },
 });
