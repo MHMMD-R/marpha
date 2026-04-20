@@ -188,7 +188,7 @@ export default function LoginScreen() {
           isSetupComplete: false,
           userId: newUserId,
           subscription: {
-             type: 'limited',
+             type: 'none',
              allowedTeachers: [],
              allowedSubjects: []
           },

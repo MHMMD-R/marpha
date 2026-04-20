@@ -285,7 +285,7 @@ export default function LecturesScreen() {
     const unsubscribeSettings = onSnapshot(doc(db, "students", user.uid), (docSnap: any) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setSubscription(data.subscription || { type: 'limited', allowedTeachers: [], allowedSubjects: [] });
+        setSubscription(data.subscription || { type: 'none', allowedTeachers: [], allowedSubjects: [] });
         setFreeTrial(data.freeTrial || null);
       }
     });

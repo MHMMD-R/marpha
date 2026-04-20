@@ -435,7 +435,7 @@ function App() {
         isSetupComplete: false,
         userId: newUserId,
         subscription: {
-          type: "limited",
+          type: "none",
           allowedTeachers: [],
           allowedSubjects: []
         },
@@ -1209,7 +1209,9 @@ function App() {
                       await signOut(auth);
                       sessionStorage.removeItem('dashboard_auth');
                       setIsAuthenticated(false);
-                    } catch(e) {}
+                    } catch {
+                      console.error("Failed to sign out dashboard user");
+                    }
                   }}
                   style={{
                     background: "#EF4444", color: "white", padding: "10px 20px", borderRadius: "10px", 

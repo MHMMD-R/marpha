@@ -329,7 +329,7 @@ export default function ProfileScreen() {
     : new Date().getFullYear();
   
   const userIdStr = userData?.userId || "—";
-  let sub = userData?.subscription || { type: 'full' };
+  let sub = userData?.subscription || { type: 'none' };
   
   let isSubActive = true;
   if (sub.endDate) {

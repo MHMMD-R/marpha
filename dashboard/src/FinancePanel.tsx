@@ -36,13 +36,13 @@ export function FinancePanel() {
   let limitedRev = 0;
 
   students.forEach(s => {
-    const sub = s.subscription || { type: 'full', allowedTeachers: [], allowedSubjects: [] };
+    const sub = s.subscription || { type: 'none', allowedTeachers: [], allowedSubjects: [] };
     if (sub.type === 'limited') {
        limitedCount++;
        const tCount = Array.isArray(sub.allowedTeachers) ? sub.allowedTeachers.length : 0;
        const sCount = Array.isArray(sub.allowedSubjects) ? sub.allowedSubjects.length : 0;
        limitedRev += (tCount + sCount) * prices.itemPrice;
-    } else {
+    } else if (sub.type === 'full') {
        fullCount++;
        fullRev += prices.fullPrice;
     }

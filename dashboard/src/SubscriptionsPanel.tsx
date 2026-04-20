@@ -38,7 +38,7 @@ export function SubscriptionsPanel() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   
   // Modal state
-  const [subType, setSubType] = useState<"full" | "limited" | "none">("full");
+  const [subType, setSubType] = useState<"full" | "limited" | "none">("none");
   const [subEndDate, setSubEndDate] = useState<string>("");
   const [selectedTeachers, setSelectedTeachers] = useState<string[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -80,7 +80,7 @@ export function SubscriptionsPanel() {
     const newId = Math.floor(100000 + Math.random() * 900000).toString();
     await updateDoc(doc(db, 'students', student.id), {
        userId: newId,
-       subscription: student.subscription || { type: 'full', allowedTeachers: [], allowedSubjects: [] }
+       subscription: student.subscription || { type: 'none', allowedTeachers: [], allowedSubjects: [] }
     });
   };
 
@@ -140,7 +140,7 @@ export function SubscriptionsPanel() {
           const newId = Math.floor(100000 + Math.random() * 900000).toString();
           batch.update(doc(db, 'students', s.id), {
             userId: newId,
-            subscription: s.subscription || { type: 'full', allowedTeachers: [], allowedSubjects: [] }
+            subscription: s.subscription || { type: 'none', allowedTeachers: [], allowedSubjects: [] }
           });
           count++;
         }
@@ -204,7 +204,7 @@ export function SubscriptionsPanel() {
           </thead>
           <tbody>
             {filteredStudents.map(student => {
-              const sub = student.subscription || { type: 'full' };
+              const sub = student.subscription || { type: 'none' };
               const idString = student.userId || '—';
               
               return (
