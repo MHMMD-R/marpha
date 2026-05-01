@@ -150,7 +150,7 @@ export default function SetupScreen() {
               style={{ width: 100, height: 100, borderRadius: 20, marginBottom: 16 }} 
               resizeMode="contain" 
             />
-            <Text style={styles.headerTitle}>أهلاً بك في معرفة اكاديمي 🎉</Text>
+            <Text style={styles.headerTitle}>أهلاً بك في المعرفة اكاديمي 🎉</Text>
             <Text style={styles.headerSubtitle}>لنقم بإعداد حسابك بخطوات بسيطة لنوفر لك أفضل تجربة تعليمية.</Text>
           </View>
 

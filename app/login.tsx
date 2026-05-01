@@ -349,8 +349,9 @@ export default function LoginScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
 
@@ -413,7 +414,7 @@ export default function LoginScreen() {
                   <Ionicons name="school" size={30} color={C.white} />
                 </View>
               </View>
-              <Text style={styles.brandName}>معرفة اكاديمي</Text>
+              <Text style={styles.brandName}>المعرفة اكاديمي</Text>
               <View style={styles.brandDivider}>
                 <View style={styles.brandDividerLine} />
                 <View style={styles.brandDividerDot} />

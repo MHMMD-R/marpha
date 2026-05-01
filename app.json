@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "معرفة اكاديمي",
+    "name": "المعرفة اكاديمي",
     "slug": "marpha",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/images/logo-dark.png",
+    "icon": "./assets/images/logo.png",
     "splash": {
-      "image": "./assets/images/logo-dark.png",
+      "image": "./assets/images/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#12453D"
     },
@@ -32,25 +32,25 @@
       }
     },
     "android": {
-      "package": "marpha.mh",
+      "package": "marphaa.mh",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#12453D",
-        "foregroundImage": "./assets/images/logo-dark.png"
+        "foregroundImage": "./assets/images/logo.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/logo-dark.png"
+      "favicon": "./assets/images/logo.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo-dark.png",
+          "icon": "./assets/images/logo.png",
           "color": "#0d4a3a"
         }
       ],
@@ -59,19 +59,20 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#12453D",
-          "image": "./assets/images/logo-dark.png",
+          "image": "./assets/images/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "dark": {
             "backgroundColor": "#12453D",
-            "image": "./assets/images/logo-dark.png"
+            "image": "./assets/images/logo.png"
           }
         }
       ],
       "expo-video",
       "@react-native-community/datetimepicker",
       "expo-localization",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

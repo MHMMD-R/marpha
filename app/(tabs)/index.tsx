@@ -463,7 +463,7 @@ export default function HomeScreen() {
                     <PulsingDot />
                   </View>
                 </View>
-                <Text style={styles.heroTitle}>معرفة اكاديمي</Text>
+                <Text style={styles.heroTitle}>المعرفة اكاديمي</Text>
                 <Text style={styles.heroSub}>أكمل من حيث توقفت في دروسك الأخيرة</Text>
                 <View style={styles.progressSection}>
                   <AnimatedProgressBar progress={overallProgress} />

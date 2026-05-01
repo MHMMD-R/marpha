@@ -13,3 +13,5 @@ web-build/
 firebase-debug.log
 git_full_log.txt
 *.log
+android/
+ios/
