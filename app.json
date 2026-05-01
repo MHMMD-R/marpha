@@ -32,7 +32,7 @@
       }
     },
     "android": {
-      "package": "marpha.mh",
+      "package": "marphaa.mh",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
