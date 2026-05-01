@@ -1,0 +1,23 @@
+commit b21d30543da6c61e1760126d82d457002ccff40f
+Author: MHMMD-R <alicho.co.uk@gmail.com>
+Date:   Sun Apr 5 21:32:10 2026 +0300
+
+    Backup my work
+
+M	app.json
+M	app/(tabs)/_layout.tsx
+D	app/(tabs)/explore.tsx
+M	app/(tabs)/index.tsx
+A	app/(tabs)/lectures.tsx
+A	app/(tabs)/notifications.tsx
+A	app/(tabs)/quizzes.tsx
+A	app/(tabs)/subjects.tsx
+A	app/subject/[id].tsx
+A	app/video/[id].tsx
+A	assets/images/hero_banner.png
+A	assets/images/lectures_card.png
+A	assets/images/logo.png
+A	assets/images/notifications_card.png
+A	assets/images/quizzes_card.png
+A	assets/images/subjects_card.png
+A	components/StudentHome.tsx

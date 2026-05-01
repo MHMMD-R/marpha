@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if the user is the Dashboard Admin
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'admin@marpha.app'
+      );
+    }
+
+    // Shared Data
+    match /subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Settings Data
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Student Data
+    match /students/{studentId} {
+      // Check if the student is updating their own profile and NOT touching protected fields
+      function isOwnerUpdatingAllowedFields() {
+        return request.auth.uid == studentId
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscription', 'freeTrial', 'userId', 'status', 'progress']));
+      }
+
+      allow read: if true;
+      // Allow creation by anyone (required for signing up)
+      allow create: if true; 
+      // Allow updates if it's the admin, OR if the owner is updating non-protected fields
+      allow update: if isAdmin() || isOwnerUpdatingAllowedFields();
+      allow delete: if isAdmin() || request.auth.uid == studentId;
+    }
+
+    // Teacher Data
+    match /teachers/{teacherId} {
+      allow read: if true;
+      allow write: if isAdmin() || request.auth.uid == teacherId;
+    }
+
+    // Chats Data
+    match /chats/{chatId} {
+      allow read, write: if true;
+    }
+    match /chats/{chatId}/messages/{messageId} {
+      allow read, write: if true;
+    }
+
+    // Groups Data
+    match /groups/{groupId} {
+      allow read, write: if true;
+      
+      match /group_messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+
+    // Quizzes Data
+    match /quizzes/{quizId} {
+      allow read: if true;
+      // Only admins and teachers should manage quizzes
+      allow create: if isAdmin() || (request.auth != null && exists(/databases/$(database)/documents/teachers/$(request.auth.uid)));
+      allow update, delete: if isAdmin() || (request.auth != null && exists(/databases/$(database)/documents/teachers/$(request.auth.uid)) && (resource.data.teacherId == request.auth.uid || !('teacherId' in resource.data)));
+    }
+
+    // Lectures Data
+    match /lectures/{lectureId} {
+      allow read: if true;
+      // Only admins and teachers should manage lectures
+      allow write: if isAdmin() || (request.auth != null && exists(/databases/$(database)/documents/teachers/$(request.auth.uid))); 
+    }
+
+    // Playlist Metadata
+    match /playlist_metadata/{metadataId} {
+      allow read: if true;
+      allow write: if isAdmin() || (request.auth != null && exists(/databases/$(database)/documents/teachers/$(request.auth.uid)));
+    }
+
+    // Quiz Submissions Data
+    match /quiz_submissions/{submissionId} {
+      // Admins and Teachers can read all; Students can only read their own
+      allow read: if isAdmin() || 
+                    (request.auth != null && exists(/databases/$(database)/documents/teachers/$(request.auth.uid))) ||
+                    (request.auth != null && resource.data.studentId == request.auth.uid);
+      
+      // Allow creation if the quiz is active and before the deadline
+      allow create: if request.auth != null && 
+                      get(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId)).data.status == 'active' &&
+                      (
+                        !('deadline' in get(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId)).data) ||
+                        get(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId)).data.deadline == null ||
+                        request.time < get(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId)).data.deadline
+                      );
+      
+      // Only admins and teachers can grade (update) submissions
+      allow update: if isAdmin() || (request.auth != null && exists(/databases/$(database)/documents/teachers/$(request.auth.uid)));
+      allow delete: if isAdmin();
+    }
+
+    // Lecture Progress Data
+    match /lecture_progress/{progressId} {
+      allow read, write: if true;
+    }
+
+    // Admin Broadcast Notifications (sent from dashboard, read by authenticated users)
+    match /admin_notifications/{notifId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+  }
+}

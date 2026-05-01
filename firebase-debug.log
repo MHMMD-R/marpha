@@ -1,0 +1,46 @@
+[debug] [2026-05-01T15:37:33.786Z] ----------------------------------------------------------------------
+[debug] [2026-05-01T15:37:33.789Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ahmed\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js auth:export --format=json --project maraph-fcab7 --non-interactive
+[debug] [2026-05-01T15:37:33.790Z] CLI Version:   15.8.0
+[debug] [2026-05-01T15:37:33.790Z] Platform:      win32
+[debug] [2026-05-01T15:37:33.790Z] Node Version:  v22.16.0
+[debug] [2026-05-01T15:37:33.790Z] Time:          Fri May 01 2026 18:37:33 GMT+0300 (Arabian Standard Time)
+[debug] [2026-05-01T15:37:33.790Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-01T15:37:34.061Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-01T15:37:34.063Z] > authorizing via signed-in user (ttbyqalmrft@gmail.com)
+[debug] [2026-05-01T15:37:34.063Z] [iam] checking project maraph-fcab7 for permissions ["firebase.projects.get","firebaseauth.users.get"]
+[debug] [2026-05-01T15:37:34.065Z] Checked if tokens are valid: true, expires at: 1777651873904
+[debug] [2026-05-01T15:37:34.065Z] Checked if tokens are valid: true, expires at: 1777651873904
+[debug] [2026-05-01T15:37:34.067Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions [none]
+[debug] [2026-05-01T15:37:34.068Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions  x-goog-user-project=maraph-fcab7
+[debug] [2026-05-01T15:37:34.068Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebaseauth.users.get"]}
+[debug] [2026-05-01T15:37:35.687Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions 200
+[debug] [2026-05-01T15:37:35.687Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebaseauth.users.get"]}
+[error] 
+[error] Error: Must specify data file
+[debug] [2026-05-01T15:37:47.698Z] ----------------------------------------------------------------------
+[debug] [2026-05-01T15:37:47.701Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ahmed\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js auth:export C:\Users\ahmed\AppData\Local\Temp\maraph-auth-export.json --format=json --project maraph-fcab7 --non-interactive
+[debug] [2026-05-01T15:37:47.702Z] CLI Version:   15.8.0
+[debug] [2026-05-01T15:37:47.702Z] Platform:      win32
+[debug] [2026-05-01T15:37:47.702Z] Node Version:  v22.16.0
+[debug] [2026-05-01T15:37:47.703Z] Time:          Fri May 01 2026 18:37:47 GMT+0300 (Arabian Standard Time)
+[debug] [2026-05-01T15:37:47.703Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-01T15:37:48.009Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-01T15:37:48.011Z] > authorizing via signed-in user (ttbyqalmrft@gmail.com)
+[debug] [2026-05-01T15:37:48.011Z] [iam] checking project maraph-fcab7 for permissions ["firebase.projects.get","firebaseauth.users.get"]
+[debug] [2026-05-01T15:37:48.012Z] Checked if tokens are valid: true, expires at: 1777651873904
+[debug] [2026-05-01T15:37:48.012Z] Checked if tokens are valid: true, expires at: 1777651873904
+[debug] [2026-05-01T15:37:48.014Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions [none]
+[debug] [2026-05-01T15:37:48.014Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions  x-goog-user-project=maraph-fcab7
+[debug] [2026-05-01T15:37:48.014Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebaseauth.users.get"]}
+[debug] [2026-05-01T15:37:49.581Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions 200
+[debug] [2026-05-01T15:37:49.581Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebaseauth.users.get"]}
+[info] Exporting accounts to C:\Users\ahmed\AppData\Local\Temp\maraph-auth-export.json
+[debug] [2026-05-01T15:37:49.582Z] Checked if tokens are valid: true, expires at: 1777651873904
+[debug] [2026-05-01T15:37:49.582Z] Checked if tokens are valid: true, expires at: 1777651873904
+[debug] [2026-05-01T15:37:49.582Z] >>> [apiv2][query] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount [none]
+[debug] [2026-05-01T15:37:49.582Z] >>> [apiv2][body] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount {"targetProjectId":"maraph-fcab7","maxResults":1000}
+[debug] [2026-05-01T15:37:50.103Z] <<< [apiv2][status] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount 200
+[debug] [2026-05-01T15:37:50.103Z] <<< [apiv2][body] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount [omitted]
+[info] +  Exported 5 account(s) successfully. 

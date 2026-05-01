@@ -1,0 +1,6 @@
+24ad1c5 HEAD@{0}: checkout: moving from backup-2026-04-05-2131 to gg
+b21d305 HEAD@{1}: commit: Backup my work
+24ad1c5 HEAD@{2}: checkout: moving from master to backup-2026-04-05-2131
+24ad1c5 HEAD@{3}: checkout: moving from gg to master
+24ad1c5 HEAD@{4}: checkout: moving from master to gg
+24ad1c5 HEAD@{5}: commit (initial): Initial commit

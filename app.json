@@ -1,0 +1,90 @@
+{
+  "expo": {
+    "name": "معرفة اكاديمي",
+    "slug": "marpha",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/logo-dark.png",
+    "splash": {
+      "image": "./assets/images/logo-dark.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#12453D"
+    },
+    "scheme": "marpha",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.marpha.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "التطبيق يحتاج الوصول إلى الكاميرا لمسح رموز QR.",
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
+      }
+    },
+    "android": {
+      "package": "marpha.mh",
+      "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#12453D",
+        "foregroundImage": "./assets/images/logo-dark.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/logo-dark.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/logo-dark.png",
+          "color": "#0d4a3a"
+        }
+      ],
+      "expo-camera",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#12453D",
+          "image": "./assets/images/logo-dark.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#12453D",
+            "image": "./assets/images/logo-dark.png"
+          }
+        }
+      ],
+      "expo-video",
+      "@react-native-community/datetimepicker",
+      "expo-localization",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "supportsRTL": true,
+      "forcesRTL": true,
+      "router": {},
+      "eas": {
+        "projectId": "02c15adb-cfbb-4cd6-9f24-00b27bc1dbf7"
+      }
+    },
+    "owner": "axms"
+  }
+}

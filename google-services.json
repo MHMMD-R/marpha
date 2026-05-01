@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "619008200445",
+    "firebase_url": "https://maraph-fcab7-default-rtdb.firebaseio.com",
+    "project_id": "maraph-fcab7",
+    "storage_bucket": "maraph-fcab7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:619008200445:android:0772814e76a085aaf67894",
+        "android_client_info": {
+          "package_name": "marpha.mh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA17LpAGdbsTltyIFin7HgcTN-2xCW9EtQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
