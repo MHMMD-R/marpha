@@ -76,6 +76,7 @@ export default {
 
 		const url = new URL(request.url);
 
+		// ── Single-PUT upload (files < ~100 MB) ─────────────────────────────────
 		if (url.pathname === "/api/r2/upload" && request.method === "PUT") {
 			try {
 				const rawBucketType = (url.searchParams.get("bucketType") || "LECTURES").toUpperCase();
@@ -92,13 +93,9 @@ export default {
 				const rawFileName = url.searchParams.get("fileName") || "upload.bin";
 				const cleanFileName = sanitizeFileName(rawFileName);
 				const keyName = `${folder ? `${folder}/` : ""}${Date.now()}-${cleanFileName}`;
-
 				const contentType = request.headers.get("Content-Type") || "application/octet-stream";
 
-				// Upload the body to Cloudflare R2
-				await bucket.put(keyName, request.body, {
-					httpMetadata: { contentType },
-				});
+				await bucket.put(keyName, request.body, { httpMetadata: { contentType } });
 
 				const publicBase = getPublicUrl(env, rawBucketType);
 				const publicUrl = publicBase ? `${publicBase}/${keyName}` : keyName;
@@ -112,6 +109,145 @@ export default {
 				return new Response(JSON.stringify({ error: message }), {
 					status: 500,
 					headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			}
+		}
+
+		// ── Multipart: Initiate ──────────────────────────────────────────────────
+		// POST /api/r2/upload/initiate?bucketType=&folder=&fileName=&contentType=
+		if (url.pathname === "/api/r2/upload/initiate" && request.method === "POST") {
+			try {
+				const rawBucketType = (url.searchParams.get("bucketType") || "LECTURES").toUpperCase();
+				const bucket = getBucket(env, rawBucketType);
+				if (!bucket) {
+					return new Response(JSON.stringify({ error: "Invalid bucketType" }), {
+						status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				}
+
+				const folder = sanitizeSegment(url.searchParams.get("folder") || "");
+				const rawFileName = url.searchParams.get("fileName") || "upload.bin";
+				const cleanFileName = sanitizeFileName(rawFileName);
+				const keyName = `${folder ? `${folder}/` : ""}${Date.now()}-${cleanFileName}`;
+				const contentType = url.searchParams.get("contentType") || "application/octet-stream";
+
+				const mpu = await bucket.createMultipartUpload(keyName, {
+					httpMetadata: { contentType },
+				});
+
+				return new Response(JSON.stringify({ uploadId: mpu.uploadId, key: keyName }), {
+					status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			} catch (error: any) {
+				const message = error instanceof Error ? error.message : "Initiate failed";
+				return new Response(JSON.stringify({ error: message }), {
+					status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			}
+		}
+
+		// ── Multipart: Upload part ───────────────────────────────────────────────
+		// PUT /api/r2/upload/part?bucketType=&key=&uploadId=&partNumber=N
+		if (url.pathname === "/api/r2/upload/part" && request.method === "PUT") {
+			try {
+				const rawBucketType = (url.searchParams.get("bucketType") || "LECTURES").toUpperCase();
+				const bucket = getBucket(env, rawBucketType);
+				if (!bucket) {
+					return new Response(JSON.stringify({ error: "Invalid bucketType" }), {
+						status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				}
+
+				const key = url.searchParams.get("key") || "";
+				const uploadId = url.searchParams.get("uploadId") || "";
+				const partNumber = parseInt(url.searchParams.get("partNumber") || "1", 10);
+
+				if (!key || !uploadId) {
+					return new Response(JSON.stringify({ error: "Missing key or uploadId" }), {
+						status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				}
+
+				const mpu = bucket.resumeMultipartUpload(key, uploadId);
+				const part = await mpu.uploadPart(partNumber, request.body);
+
+				return new Response(JSON.stringify({ etag: part.etag, partNumber }), {
+					status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			} catch (error: any) {
+				const message = error instanceof Error ? error.message : "Part upload failed";
+				return new Response(JSON.stringify({ error: message }), {
+					status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			}
+		}
+
+		// ── Multipart: Complete ──────────────────────────────────────────────────
+		// POST /api/r2/upload/complete?bucketType=
+		// Body: { uploadId, key, parts: [{partNumber, etag}] }
+		if (url.pathname === "/api/r2/upload/complete" && request.method === "POST") {
+			try {
+				const rawBucketType = (url.searchParams.get("bucketType") || "LECTURES").toUpperCase();
+				const bucket = getBucket(env, rawBucketType);
+				if (!bucket) {
+					return new Response(JSON.stringify({ error: "Invalid bucketType" }), {
+						status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				}
+
+				const body = await request.json<{ uploadId: string; key: string; parts: { partNumber: number; etag: string }[] }>();
+				const { uploadId, key, parts } = body;
+
+				if (!uploadId || !key || !parts?.length) {
+					return new Response(JSON.stringify({ error: "Missing uploadId, key or parts" }), {
+						status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				}
+
+				const mpu = bucket.resumeMultipartUpload(key, uploadId);
+				await mpu.complete(parts);
+
+				const publicBase = getPublicUrl(env, rawBucketType);
+				const publicUrl = publicBase ? `${publicBase}/${key}` : key;
+
+				return new Response(JSON.stringify({ publicUrl }), {
+					status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			} catch (error: any) {
+				const message = error instanceof Error ? error.message : "Complete failed";
+				return new Response(JSON.stringify({ error: message }), {
+					status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			}
+		}
+
+		// ── Multipart: Abort ─────────────────────────────────────────────────────
+		// DELETE /api/r2/upload/abort?bucketType=
+		// Body: { uploadId, key }
+		if (url.pathname === "/api/r2/upload/abort" && request.method === "DELETE") {
+			try {
+				const rawBucketType = (url.searchParams.get("bucketType") || "LECTURES").toUpperCase();
+				const bucket = getBucket(env, rawBucketType);
+				if (!bucket) {
+					return new Response(JSON.stringify({ error: "Invalid bucketType" }), {
+						status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+					});
+				}
+
+				const body = await request.json<{ uploadId: string; key: string }>();
+				const { uploadId, key } = body;
+				if (uploadId && key) {
+					const mpu = bucket.resumeMultipartUpload(key, uploadId);
+					await mpu.abort();
+				}
+
+				return new Response(JSON.stringify({ success: true }), {
+					status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+				});
+			} catch (error: any) {
+				const message = error instanceof Error ? error.message : "Abort failed";
+				return new Response(JSON.stringify({ error: message }), {
+					status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
 				});
 			}
 		}

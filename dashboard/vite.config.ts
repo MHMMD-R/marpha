@@ -1,4 +1,5 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { Upload } from "@aws-sdk/lib-storage"
 import react from "@vitejs/plugin-react"
 import { defineConfig, loadEnv } from "vite"
 
@@ -112,15 +113,24 @@ export default defineConfig(({ mode }) => {
                 ? parsedContentLength
                 : undefined
 
-              await s3Client.send(
-                new PutObjectCommand({
+              // Use multipart Upload so large lecture videos are split into
+              // manageable chunks (5 MB each) instead of one giant PUT request.
+              const uploader = new Upload({
+                client: s3Client,
+                params: {
                   Bucket: buckets[bucketType],
                   Key: keyName,
                   Body: req,
                   ContentType: contentType,
                   ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
-                })
-              )
+                },
+                // Each part is 5 MB (minimum allowed by S3/R2 for multipart).
+                partSize: 5 * 1024 * 1024,
+                // Allow up to 4 concurrent part uploads.
+                queueSize: 4,
+              })
+
+              await uploader.done()
 
               const publicBase = publicBases[bucketType]
               const publicUrl = publicBase ? `${publicBase}/${keyName}` : keyName
