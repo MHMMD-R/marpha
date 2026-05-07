@@ -70,6 +70,7 @@ const TEACHER_ONLY_SEGMENTS = new Set([
 const STUDENT_ONLY_SEGMENTS = new Set([
   '(tabs)',
   'setup',
+  'terms',
   'subject',
   'quiz',
 ]);
@@ -449,8 +450,9 @@ export default function RootLayout() {
     if (!isAuthReady) return;
 
     const currentSegment = segments[0] ?? '';
-    const inAuthGroup = currentSegment === 'login';
+    const inAuthGroup = currentSegment === 'login' || currentSegment === 'privacy' || currentSegment === 'terms';
     const inSetup = currentSegment === 'setup';
+    const inTerms = currentSegment === 'terms';
     const inTeacherOnlyRoute = TEACHER_ONLY_SEGMENTS.has(currentSegment);
     const inStudentOnlyRoute = STUDENT_ONLY_SEGMENTS.has(currentSegment);
     const roleRouteMismatch =
@@ -518,9 +520,15 @@ export default function RootLayout() {
                 logPush('routing_setup', { uid: currentUser.uid });
                 router.replace('/setup');
               }
+            } else if (!data.termsAccepted) {
+              // Setup complete but terms not accepted yet
+              if (!inTerms && !inSetup) {
+                logPush('routing_terms', { uid: currentUser.uid });
+                router.replace('/terms');
+              }
             } else {
-              // Setup is complete
-              if (inAuthGroup || inSetup || inTeacherOnlyRoute) {
+              // Setup is complete and terms accepted
+              if (inAuthGroup || inSetup || inTerms || inTeacherOnlyRoute) {
                 logPush('routing_tabs', { uid: currentUser.uid });
                 router.replace('/(tabs)');
               }
@@ -554,6 +562,7 @@ export default function RootLayout() {
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="profile" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           <Stack.Screen name="privacy" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="terms" options={{ headerShown: false, gestureEnabled: false }} />
         </Stack>
         {(!isAuthReady || isNavigatingAwayFromLogin) && (
           <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: colorScheme === 'dark' ? '#000' : '#fff', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>

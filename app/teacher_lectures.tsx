@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '../components/BackButton';
 import { PlaylistCard, PlaylistModal } from '../components/PlaylistUI';
 import { auth, db } from '../firebase';
+import { pickSingleImage, pickSingleVideo } from '../utils/mediaPicker';
 import { uploadR2File } from '../utils/r2Upload';
 
 const C = {
@@ -179,11 +180,7 @@ export default function TeacherLecturesScreen() {
     }
 
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['videos'],
-        allowsEditing: false,
-        quality: 1,
-      });
+      const result = await pickSingleVideo();
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
@@ -524,11 +521,9 @@ export default function TeacherLecturesScreen() {
                       activeOpacity={0.7}
                       onPress={async () => {
                         try {
-                          const result = await ImagePicker.launchImageLibraryAsync({
-                            mediaTypes: ['images'],
+                          const result = await pickSingleImage({
                             allowsEditing: true,
                             aspect: [16, 9],
-                            quality: 0.8,
                           });
                           if (!result.canceled && result.assets && result.assets.length > 0) {
                             setPlaylistThumbnailFile(result.assets[0]);

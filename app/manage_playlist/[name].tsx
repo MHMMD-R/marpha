@@ -9,6 +9,7 @@ import { collection, doc, getDocs, query, where, setDoc } from 'firebase/firesto
 import * as ImagePicker from 'expo-image-picker';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView, TouchableWithoutFeedback } from 'react-native-gesture-handler';
+import { pickSingleImage } from '../../utils/mediaPicker';
 import { uploadR2File } from '../../utils/r2Upload';
 
 const C = {
@@ -106,11 +107,9 @@ export default function ManagePlaylistScreen() {
 
   const handlePickImage = async () => {
     try {
-      let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+      let result = await pickSingleImage({
         allowsEditing: true,
         aspect: [16, 9],
-        quality: 0.8,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setLocalImage(result.assets[0]);

@@ -14,14 +14,6 @@ export function GroupsPanel({ initialTeacherId }: { initialTeacherId?: string })
   const [teachers, setTeachers] = useState<any[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
 
-  useEffect(() => {
-    if (initialTeacherId && teachers.length > 0) {
-      const t = teachers.find((x: any) => x.id === initialTeacherId || x.uid === initialTeacherId);
-      if (t && (!selectedTeacher || selectedTeacher.id !== t.id)) {
-        setSelectedTeacher(t);
-      }
-    }
-  }, [initialTeacherId, teachers]);
   const [messages, setMessages] = useState<any[]>([]);
   const [mutedStudents, setMutedStudents] = useState<any>({});
   const [isGroupMuted, setIsGroupMuted] = useState(false);
@@ -32,10 +24,18 @@ export function GroupsPanel({ initialTeacherId }: { initialTeacherId?: string })
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'teachers'), snap => {
-      setTeachers(snap.docs.map(t => ({ id: t.id, ...t.data() })));
+      const nextTeachers = snap.docs.map(t => ({ id: t.id, ...t.data() }));
+      setTeachers(nextTeachers);
+
+      if (initialTeacherId) {
+        const initialTeacher = nextTeachers.find((teacher: any) => teacher.id === initialTeacherId || teacher.uid === initialTeacherId);
+        if (initialTeacher) {
+          setSelectedTeacher((current: any) => current?.id === initialTeacher.id ? current : initialTeacher);
+        }
+      }
     });
     return () => unsub();
-  }, []);
+  }, [initialTeacherId]);
 
   useEffect(() => {
     if (!selectedTeacher) return;
@@ -97,10 +97,10 @@ export function GroupsPanel({ initialTeacherId }: { initialTeacherId?: string })
         </div>
       </div>
 
-      <div className="panel-body" style={{ flex: 1, display: "flex", gap: "20px", padding: "10px", height: "600px", position: "relative" }}>
+      <div className="panel-body groups-panel-body" style={{ flex: 1, display: "flex", gap: "20px", padding: "10px", height: "600px", position: "relative" }}>
         
         {/* Teachers List Sidebar */}
-        <div style={{ width: "300px", borderLeft: "1px solid var(--border-light)", display: "flex", flexDirection: "column" }}>
+        <div className="groups-teachers-list" style={{ width: "300px", borderLeft: "1px solid var(--border-light)", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "0 0 15px 15px" }}>
             <div className="topbar-search" style={{ width: "100%", margin: 0, padding: "8px 12px" }}>
                <Search size={14} color="#8A9E99" />
@@ -153,7 +153,7 @@ export function GroupsPanel({ initialTeacherId }: { initialTeacherId?: string })
 
         {/* Selected Group details */}
         {selectedTeacher ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f8faf9", borderRadius: "12px", overflow: "hidden" }}>
+          <div className="groups-chat-pane" style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f8faf9", borderRadius: "12px", overflow: "hidden" }}>
              
              {/* Chat App Style Header */}
              <div 
@@ -238,7 +238,7 @@ export function GroupsPanel({ initialTeacherId }: { initialTeacherId?: string })
 
           </div>
         ) : (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-tertiary)", background: "#f8faf9", borderRadius: "12px" }}>
+          <div className="groups-chat-pane groups-empty-pane" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-tertiary)", background: "#f8faf9", borderRadius: "12px" }}>
              <MessageCircle size={48} style={{ opacity: 0.2, marginBottom: "15px" }} />
              <p style={{ fontSize: "1.1rem" }}>الرجاء اختيار مجموعة من القائمة للمعلم</p>
           </div>

@@ -1,0 +1,1 @@
+[2m6:44:05 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[2026-05-02T15:44:05.409Z]  @firebase/firestore: Firestore (12.11.0): WebChannelConnection RPC 'Listen' stream 0x14e12853 transport errored. Name: undefined Message: undefined

@@ -10,6 +10,7 @@ import {
     GraduationCap,
     LayoutDashboard,
     LogOut,
+    Menu,
     MessageCircle,
     Save,
     Search,
@@ -146,6 +147,18 @@ const isFreeTrialActive = (freeTrial: any) => {
   if (!freeTrial?.isActive) return false;
   const endTime = getAccessTime(freeTrial.endDate);
   return endTime !== null && Date.now() < endTime;
+};
+
+const toDateValue = (value: any): Date | null => {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDashboardDate = (value: any) => {
+  const date = toDateValue(value);
+  return date ? date.toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : "غير محدد";
 };
 
 const studentCanReceiveSubjectNotification = (student: any, subject: unknown, teachers: any[]) => {
@@ -403,6 +416,7 @@ function App() {
   }, [lockoutUntil]);
 
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -437,6 +451,19 @@ function App() {
   const [isAddingVideo, setIsAddingVideo] = useState(false);
   const [videosViewMode, setVideosViewMode] = useState<"all" | "playlists">("all");
   const [chatInitialTeacherId, setChatInitialTeacherId] = useState<string | undefined>();
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [quizSubmissions, setQuizSubmissions] = useState<any[]>([]);
+  const [isAddQuizOpen, setIsAddQuizOpen] = useState(false);
+  const [newQuizTitle, setNewQuizTitle] = useState("");
+  const [newQuizTeacherId, setNewQuizTeacherId] = useState("");
+  const [newQuizSubject, setNewQuizSubject] = useState("");
+  const [newQuizDeadline, setNewQuizDeadline] = useState("");
+  const [newQuizFiles, setNewQuizFiles] = useState<File[]>([]);
+  const [isAddingQuiz, setIsAddingQuiz] = useState(false);
+  const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
+  const [gradeInput, setGradeInput] = useState("");
+  const [fullScreenQuizImage, setFullScreenQuizImage] = useState<string | null>(null);
 
   const [manageTarget, setManageTarget] = useState<{ type: 'student' | 'teacher', data: any } | null>(null);
   const [manageTargetTab, setManageTargetTab] = useState<'stats'|'videos'|'chat'|'settings'>('stats');
@@ -451,6 +478,28 @@ function App() {
     setShowQR(false);
     setIsEditingUser(false);
   };
+
+  const handleNavClick = (tabId: string) => {
+    setActiveTab(tabId);
+    setIsMobileSidebarOpen(false);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    document.body.classList.toggle("mobile-sidebar-open", isMobileSidebarOpen);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.classList.remove("mobile-sidebar-open");
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileSidebarOpen]);
+
   const handleResetDevice = async () => {
     if (!manageTarget || manageTarget.type !== 'student') return;
     if (!window.confirm("هل أنت متأكد من إعادة تعيين ربط الجهاز لهذا الطالب؟ سيتمكن من الربط من أي جهاز جديد في المرة القادمة.")) return;
@@ -998,6 +1047,134 @@ function App() {
     }
   };
 
+  const handleAddQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQuizTitle.trim() || !newQuizTeacherId || newQuizFiles.length === 0) return;
+
+    const teacher = teachers.find((item: any) => item.id === newQuizTeacherId || item.uid === newQuizTeacherId);
+    const teacherId = teacher?.uid || teacher?.id || newQuizTeacherId;
+    const subject = newQuizSubject || teacher?.subject || "";
+
+    setIsAddingQuiz(true);
+    try {
+      const folder = `quizzes_${teacherId}`;
+      const uploadedQuestions = [];
+
+      for (const [index, file] of newQuizFiles.entries()) {
+        const renamedFile = new File([file], `q${index + 1}_${Date.now()}_${file.name}`, { type: file.type || "image/jpeg" });
+        const questionImage = await uploadToR2(renamedFile, "QUIZZES", folder);
+        uploadedQuestions.push({ questionImage });
+      }
+
+      const quizRef = await addDoc(collection(db, "quizzes"), {
+        title: newQuizTitle.trim(),
+        teacherId,
+        teacherName: teacher?.name || "",
+        subject,
+        course: subject,
+        questions: uploadedQuestions,
+        status: "active",
+        deadline: newQuizDeadline ? new Date(newQuizDeadline) : null,
+        createdAt: new Date(),
+      });
+
+      const targetTokens = Array.from(
+        new Set(
+          students
+            .filter((student) => student.notificationsEnabled !== false)
+            .filter((student) => {
+              if (subject && studentCanReceiveSubjectNotification(student, subject, teachers)) return true;
+              const subscription = student.subscription;
+              const freeTrial = student.freeTrial;
+              const teacherAllowed =
+                isSubscriptionActive(subscription) && stringArray(subscription?.allowedTeachers).includes(teacherId);
+              const trialAllowed =
+                isFreeTrialActive(freeTrial) && stringArray(freeTrial?.access?.allowedTeachers).includes(teacherId);
+              return teacherAllowed || trialAllowed;
+            })
+            .map((student) => student.expoPushToken)
+            .filter(isValidExpoPushToken)
+        )
+      );
+
+      if (targetTokens.length > 0) {
+        const messages: ExpoPushMessage[] = targetTokens.map((token) => ({
+          to: token,
+          sound: "default",
+          title: "اختبار جديد",
+          body: `تمت إضافة اختبار جديد بعنوان "${newQuizTitle.trim()}"`,
+          data: { route: "quiz", quizId: quizRef.id },
+        }));
+
+        void sendExpoPushMessages(messages).catch((err) => {
+          logPushError("quiz_notification_send_failed", err);
+        });
+      }
+
+      setNewQuizTitle("");
+      setNewQuizTeacherId("");
+      setNewQuizSubject("");
+      setNewQuizDeadline("");
+      setNewQuizFiles([]);
+      setIsAddQuizOpen(false);
+    } catch (err: any) {
+      alert("خطأ في إضافة الاختبار: " + err.message);
+    } finally {
+      setIsAddingQuiz(false);
+    }
+  };
+
+  const handleToggleQuizStatus = async (quiz: any) => {
+    const nextStatus = quiz.status === "finished" ? "active" : "finished";
+    try {
+      await updateDoc(doc(db, "quizzes", quiz.id), { status: nextStatus });
+    } catch (err: any) {
+      alert("خطأ في تحديث حالة الاختبار: " + err.message);
+    }
+  };
+
+  const handleDeleteQuiz = async (quizId: string) => {
+    if (!window.confirm("هل أنت متأكد من حذف هذا الاختبار؟ سيتم حذف الاختبار من التطبيق أيضاً.")) return;
+    try {
+      const relatedSubmissions = quizSubmissions.filter((submission: any) => submission.quizId === quizId);
+      for (const submission of relatedSubmissions) {
+        await deleteDoc(doc(db, "quiz_submissions", submission.id));
+      }
+      await deleteDoc(doc(db, "quizzes", quizId));
+      if (selectedQuiz?.id === quizId) setSelectedQuiz(null);
+    } catch (err: any) {
+      alert("خطأ في حذف الاختبار: " + err.message);
+    }
+  };
+
+  const handleSaveGrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSubmission || !gradeInput.trim()) return;
+
+    try {
+      await updateDoc(doc(db, "quiz_submissions", selectedSubmission.id), {
+        score: gradeInput.trim(),
+        graded: true,
+      });
+
+      const student = students.find((item: any) => item.id === selectedSubmission.studentId || item.uid === selectedSubmission.studentId);
+      if (isValidExpoPushToken(student?.expoPushToken) && student.notificationsEnabled !== false) {
+        void sendExpoPushMessages([{
+          to: student.expoPushToken,
+          sound: "default",
+          title: "تم تصحيح اختبارك",
+          body: `تم رصد درجتك (${gradeInput.trim()}) في الاختبار: ${selectedSubmission.quizTitle || selectedQuiz?.title || "بدون عنوان"}.`,
+          data: { route: "quiz", quizId: selectedSubmission.quizId },
+        }]).catch((err) => logPushError("grade_notification_send_failed", err));
+      }
+
+      setSelectedSubmission(null);
+      setGradeInput("");
+    } catch (err: any) {
+      alert("خطأ في حفظ الدرجة: " + err.message);
+    }
+  };
+
   const handleDeleteVideo = async (id: string) => {
     if (!window.confirm("هل أنت متأكد من رغبتك في حذف هذا الفيديو نهائياً؟")) return;
     try {
@@ -1144,12 +1321,40 @@ function App() {
         }
       });
 
+      const unsubQuizzes = onSnapshot(collection(db, "quizzes"), (snapshot) => {
+        const fetchedQuizzes = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        const sorted = fetchedQuizzes.sort((a: any, b: any) => {
+          const aTime = toDateValue(a.createdAt)?.getTime() || 0;
+          const bTime = toDateValue(b.createdAt)?.getTime() || 0;
+          return bTime - aTime;
+        });
+        setQuizzes(sorted);
+      });
+
+      const unsubQuizSubmissions = onSnapshot(collection(db, "quiz_submissions"), (snapshot) => {
+        const fetchedSubmissions = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        const sorted = fetchedSubmissions.sort((a: any, b: any) => {
+          const aTime = toDateValue(a.createdAt)?.getTime() || 0;
+          const bTime = toDateValue(b.createdAt)?.getTime() || 0;
+          return bTime - aTime;
+        });
+        setQuizSubmissions(sorted);
+      });
+
       return () => {
         unsubSubjects();
         unsubStudents();
         unsubTeachers();
         
         unsubVideos();
+        unsubQuizzes();
+        unsubQuizSubmissions();
       }
     } catch (e) {
       console.warn("Firebase not configured correctly yet:", e);
@@ -1267,8 +1472,14 @@ function App() {
 
   return (
     <div className="app-layout">
+      <button
+        type="button"
+        className={`sidebar-overlay ${isMobileSidebarOpen ? "visible" : ""}`}
+        aria-label="إغلاق القائمة"
+        onClick={() => setIsMobileSidebarOpen(false)}
+      />
       {/* ═══ Sidebar ═══ */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${isMobileSidebarOpen ? "open" : ""}`}>
         <div className="sidebar-brand">
           <div className="sidebar-brand-icon">
             <GraduationCap size={22} color="#fff" />
@@ -1277,6 +1488,14 @@ function App() {
             <h1>معرفة</h1>
             <span>لوحة التحكم</span>
           </div>
+          <button
+            type="button"
+            className="sidebar-close-btn"
+            aria-label="إغلاق القائمة"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -1285,7 +1504,7 @@ function App() {
             <a 
               key={i} 
               className={`nav-item ${activeTab === item.id ? "active" : ""}`}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleNavClick(item.id)}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
@@ -1298,7 +1517,7 @@ function App() {
             <a 
               key={i} 
               className={`nav-item ${activeTab === item.id ? "active" : ""}`}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleNavClick(item.id)}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
@@ -1323,6 +1542,14 @@ function App() {
         {/* Top Bar */}
         <header className="topbar">
           <div className="topbar-left">
+            <button
+              type="button"
+              className="mobile-menu-btn"
+              aria-label="فتح القائمة"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
+              <Menu size={22} />
+            </button>
             <h2>لوحة التحكم</h2>
             <p>مرحباً بعودتك، المشرف العام</p>
           </div>
@@ -1732,6 +1959,179 @@ function App() {
             <SubscriptionsPanel />
           ) : activeTab === "freeTrials" ? (
             <FreeTrialsPanel />
+          ) : activeTab === "exams" ? (
+            <motion.div className="panel-card glass-card" {...fadeUp(0.1)} style={{ minHeight: "60vh" }}>
+              <div className="panel-header">
+                <h3>إدارة الاختبارات</h3>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button className="btn-primary" onClick={() => setIsAddQuizOpen(true)}>
+                    <span style={{ fontSize: "1.2rem", fontWeight: "900" }}>+</span>
+                    إضافة اختبار
+                  </button>
+                  <span className="panel-header-action" onClick={() => setActiveTab("dashboard")}><ChevronLeft size={14} style={{ verticalAlign: "middle" }} /> رجوع</span>
+                </div>
+              </div>
+
+              <div className="panel-body" style={{ padding: "20px" }}>
+                <div className="stats-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: "20px" }}>
+                  <div className="stat-card glass-card" style={{ cursor: "default" }}>
+                    <div className="stat-card-header">
+                      <div className="stat-card-icon" style={{ background: "#EEF5F3" }}><GraduationCap size={22} color="#12453D" /></div>
+                    </div>
+                    <h3>{quizzes.length}</h3>
+                    <p>إجمالي الاختبارات</p>
+                  </div>
+                  <div className="stat-card glass-card" style={{ cursor: "default" }}>
+                    <div className="stat-card-header">
+                      <div className="stat-card-icon" style={{ background: "#ECFDF5" }}><Check size={22} color="#10B981" /></div>
+                    </div>
+                    <h3>{quizzes.filter((quiz: any) => quiz.status !== "finished").length}</h3>
+                    <p>اختبارات نشطة</p>
+                  </div>
+                  <div className="stat-card glass-card" style={{ cursor: "default" }}>
+                    <div className="stat-card-header">
+                      <div className="stat-card-icon" style={{ background: "#FFF8E8" }}><Clock size={22} color="#E3A736" /></div>
+                    </div>
+                    <h3>{quizSubmissions.filter((submission: any) => !submission.graded).length}</h3>
+                    <p>بانتظار التصحيح</p>
+                  </div>
+                </div>
+
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>الاختبار</th>
+                      <th>المعلم</th>
+                      <th>المادة</th>
+                      <th>الأسئلة</th>
+                      <th>التسليمات</th>
+                      <th>الحالة</th>
+                      <th>الإجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quizzes.length > 0 ? quizzes.map((quiz: any) => {
+                      const quizTeacher = teachers.find((teacher: any) => teacher.id === quiz.teacherId || teacher.uid === quiz.teacherId);
+                      const submissions = quizSubmissions.filter((submission: any) => submission.quizId === quiz.id);
+                      const pending = submissions.filter((submission: any) => !submission.graded).length;
+                      return (
+                        <tr key={quiz.id}>
+                          <td>
+                            <div className="table-user">
+                              <div className="table-user-avatar" style={{ background: quiz.status === "finished" ? "#8A9E99" : "#12453D" }}>
+                                <GraduationCap size={16} color="#fff" />
+                              </div>
+                              <div className="table-user-info">
+                                <h4>{quiz.title || "اختبار بدون عنوان"}</h4>
+                                <p>{formatDashboardDate(quiz.createdAt)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{quiz.teacherName || quizTeacher?.name || "غير محدد"}</td>
+                          <td>{quiz.subject || quiz.course || quizTeacher?.subject || "عام"}</td>
+                          <td>{quiz.questions?.length || 0}</td>
+                          <td>
+                            <span className="status-badge pending">{submissions.length} تسليم</span>
+                            {pending > 0 && <span style={{ marginRight: "8px", color: "#E3A736", fontWeight: 800, fontSize: "0.8rem" }}>{pending} جديد</span>}
+                          </td>
+                          <td>
+                            <span className={`status-badge ${quiz.status === "finished" ? "inactive" : "active"}`}>
+                              {quiz.status === "finished" ? "مغلق" : "نشط"}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button className="btn-secondary" style={{ padding: "6px 10px" }} onClick={() => setSelectedQuiz(quiz)}>
+                                عرض
+                              </button>
+                              <button className="btn-secondary" style={{ padding: "6px 10px" }} onClick={() => handleToggleQuizStatus(quiz)}>
+                                {quiz.status === "finished" ? "إعادة فتح" : "إغلاق"}
+                              </button>
+                              <button onClick={() => handleDeleteQuiz(quiz.id)} style={{ padding: "6px 10px", background: "rgba(255, 59, 48, 0.1)", color: "#FF3B30", border: "1px solid rgba(255, 59, 48, 0.3)", borderRadius: "8px", cursor: "pointer", fontWeight: 700 }}>
+                                حذف
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: "center", padding: "40px", color: "#8A9E99" }}>لا توجد اختبارات حالياً.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {selectedQuiz && (
+                  <div style={{ marginTop: "24px", background: "#F9FAFA", border: "1px solid #E8EDEC", borderRadius: "14px", overflow: "hidden" }}>
+                    <div style={{ padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", borderBottom: "1px solid #E8EDEC", flexWrap: "wrap" }}>
+                      <div>
+                        <h3 style={{ margin: 0, color: "#12453D" }}>{selectedQuiz.title}</h3>
+                        <p style={{ margin: "4px 0 0", color: "#8A9E99", fontSize: "0.85rem" }}>
+                          الموعد النهائي: {selectedQuiz.deadline ? formatDashboardDate(selectedQuiz.deadline) : "بدون موعد"}
+                        </p>
+                      </div>
+                      <button className="btn-secondary" onClick={() => setSelectedQuiz(null)}>إغلاق التفاصيل</button>
+                    </div>
+
+                    <div style={{ padding: "18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" }}>
+                      {selectedQuiz.questions?.map((question: any, index: number) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setFullScreenQuizImage(question.questionImage || question.imageUrl)}
+                          style={{ background: "#fff", border: "1px solid #E8EDEC", borderRadius: "12px", padding: "10px", textAlign: "right", cursor: "pointer" }}
+                        >
+                          <div style={{ fontWeight: 800, color: "#12453D", marginBottom: "8px" }}>السؤال {index + 1}</div>
+                          {(question.questionImage || question.imageUrl) ? (
+                            <img src={question.questionImage || question.imageUrl} alt={`السؤال ${index + 1}`} style={{ width: "100%", height: "150px", objectFit: "contain", borderRadius: "8px", background: "#F4F7F6" }} />
+                          ) : (
+                            <div style={{ height: "150px", display: "flex", alignItems: "center", justifyContent: "center", color: "#8A9E99", background: "#F4F7F6", borderRadius: "8px" }}>لا توجد صورة</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ padding: "0 18px 18px" }}>
+                      <h4 style={{ margin: "0 0 12px", color: "#12453D" }}>تسليمات الطلاب</h4>
+                      <div style={{ overflowX: "auto" }}>
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>الطالب</th>
+                              <th>الإجابات</th>
+                              <th>الحالة</th>
+                              <th>الدرجة</th>
+                              <th>الإجراء</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {quizSubmissions.filter((submission: any) => submission.quizId === selectedQuiz.id).map((submission: any) => (
+                              <tr key={submission.id}>
+                                <td>{submission.studentName || "طالب غير معروف"}</td>
+                                <td>{submission.answers?.length || 0}</td>
+                                <td><span className={`status-badge ${submission.graded ? "active" : "pending"}`}>{submission.graded ? "تم التصحيح" : "بانتظار التصحيح"}</span></td>
+                                <td>{submission.score || "-"}</td>
+                                <td>
+                                  <button className="btn-primary" style={{ padding: "6px 12px" }} onClick={() => { setSelectedSubmission(submission); setGradeInput(submission.score || ""); }}>
+                                    عرض وتصحيح
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                            {quizSubmissions.filter((submission: any) => submission.quizId === selectedQuiz.id).length === 0 && (
+                              <tr>
+                                <td colSpan={5} style={{ textAlign: "center", padding: "28px", color: "#8A9E99" }}>لا توجد تسليمات لهذا الاختبار بعد.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           ) : activeTab === "requests" ? (
             <motion.div className="panel-card glass-card" {...fadeUp(0.1)} style={{ minHeight: "60vh" }}>
               <div className="panel-header">
@@ -1993,6 +2393,168 @@ function App() {
       </main>
 
       {/* Custom Add Student Modal */}
+      {isAddQuizOpen && (
+        <div className="modal-overlay">
+          <motion.div
+            className="modal-content glass-card"
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.94 }}
+            style={{ maxWidth: "620px" }}
+          >
+            <div className="modal-header">
+              <h3>إضافة اختبار جديد</h3>
+              <button className="close-modal-btn" onClick={() => setIsAddQuizOpen(false)} disabled={isAddingQuiz}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleAddQuiz} className="modal-form">
+              <div className="form-group">
+                <label>عنوان الاختبار</label>
+                <input value={newQuizTitle} onChange={(e) => setNewQuizTitle(e.target.value)} placeholder="مثال: اختبار الفصل الأول" required />
+              </div>
+
+              <div className="form-group">
+                <label>المعلم</label>
+                <select
+                  value={newQuizTeacherId}
+                  onChange={(e) => {
+                    const teacher = teachers.find((item: any) => item.id === e.target.value || item.uid === e.target.value);
+                    setNewQuizTeacherId(e.target.value);
+                    setNewQuizSubject(teacher?.subject || "");
+                  }}
+                  required
+                  style={{ padding: "12px 14px", border: "1px solid var(--border-medium)", borderRadius: "12px", fontFamily: "inherit", background: "transparent" }}
+                >
+                  <option value="">اختر المعلم...</option>
+                  {teachers.map((teacher: any) => (
+                    <option key={teacher.id || teacher.uid} value={teacher.uid || teacher.id}>
+                      {teacher.name} {teacher.subject ? `- ${teacher.subject}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>المادة</label>
+                <select
+                  value={newQuizSubject}
+                  onChange={(e) => setNewQuizSubject(e.target.value)}
+                  style={{ padding: "12px 14px", border: "1px solid var(--border-medium)", borderRadius: "12px", fontFamily: "inherit", background: "transparent" }}
+                >
+                  <option value="">حسب مادة المعلم / عام</option>
+                  {IRAQI_SUBJECTS.map((subject) => (
+                    <option key={subject} value={subject}>{subject}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>موعد الإغلاق (اختياري)</label>
+                <input type="datetime-local" value={newQuizDeadline} onChange={(e) => setNewQuizDeadline(e.target.value)} />
+              </div>
+
+              <div className="form-group">
+                <label>صور الأسئلة</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setNewQuizFiles(Array.from(e.target.files || []))}
+                  required
+                />
+                {newQuizFiles.length > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "8px", marginTop: "10px" }}>
+                    {newQuizFiles.map((file, index) => (
+                      <div key={`${file.name}-${index}`} style={{ background: "#F4F7F6", border: "1px solid #E8EDEC", borderRadius: "8px", padding: "8px", fontSize: "0.75rem", color: "#12453D" }}>
+                        سؤال {index + 1}
+                        <div style={{ color: "#8A9E99", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setIsAddQuizOpen(false)} disabled={isAddingQuiz}>إلغاء</button>
+                <button type="submit" className="btn-primary" disabled={isAddingQuiz}>
+                  <Save size={16} />
+                  {isAddingQuiz ? "جاري رفع الاختبار..." : "نشر الاختبار"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {selectedSubmission && (
+        <div className="modal-overlay">
+          <motion.div
+            className="modal-content glass-card"
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.94 }}
+            style={{ maxWidth: "760px" }}
+          >
+            <div className="modal-header">
+              <div>
+                <h3>تصحيح إجابة الطالب</h3>
+                <p style={{ margin: "4px 0 0", color: "#8A9E99", fontSize: "0.85rem" }}>{selectedSubmission.studentName || "طالب غير معروف"}</p>
+              </div>
+              <button className="close-modal-btn" onClick={() => setSelectedSubmission(null)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: "20px", overflowY: "auto" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "20px" }}>
+                {selectedSubmission.answers?.map((answer: any, index: number) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => answer.answerImage && setFullScreenQuizImage(answer.answerImage)}
+                    style={{ background: "#fff", border: "1px solid #E8EDEC", borderRadius: "12px", padding: "10px", textAlign: "right", cursor: answer.answerImage ? "pointer" : "default" }}
+                  >
+                    <div style={{ fontWeight: 800, color: "#12453D", marginBottom: "8px" }}>إجابة السؤال {index + 1}</div>
+                    {answer.answerImage ? (
+                      <img src={answer.answerImage} alt={`إجابة ${index + 1}`} style={{ width: "100%", height: "180px", objectFit: "contain", borderRadius: "8px", background: "#F4F7F6" }} />
+                    ) : (
+                      <div style={{ height: "180px", display: "flex", alignItems: "center", justifyContent: "center", color: "#8A9E99", background: "#F4F7F6", borderRadius: "8px" }}>لا توجد صورة إجابة</div>
+                    )}
+                  </button>
+                ))}
+                {(!selectedSubmission.answers || selectedSubmission.answers.length === 0) && (
+                  <div style={{ color: "#8A9E99", padding: "24px" }}>لا توجد إجابات مرفقة.</div>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveGrade} style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  value={gradeInput}
+                  onChange={(e) => setGradeInput(e.target.value)}
+                  placeholder="الدرجة مثال: 10/10"
+                  style={{ flex: "1 1 220px", padding: "12px 14px", border: "1px solid #D0D9D6", borderRadius: "12px", fontFamily: "inherit" }}
+                  required
+                />
+                <button type="submit" className="btn-primary">
+                  <Save size={16} />
+                  حفظ الدرجة
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {fullScreenQuizImage && (
+        <div className="modal-overlay" style={{ zIndex: 1100, background: "rgba(0,0,0,0.86)" }} onClick={() => setFullScreenQuizImage(null)}>
+          <button className="close-modal-btn" style={{ position: "fixed", top: 18, left: 18, color: "#fff", background: "rgba(255,255,255,0.12)" }} onClick={() => setFullScreenQuizImage(null)}>
+            <X size={24} />
+          </button>
+          <img src={fullScreenQuizImage} alt="عرض الصورة" style={{ maxWidth: "94vw", maxHeight: "90vh", objectFit: "contain", borderRadius: "12px" }} />
+        </div>
+      )}
+
       {isAddStudentOpen && (
         <div className="modal-overlay">
           <motion.div 

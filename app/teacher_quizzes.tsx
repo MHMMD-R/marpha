@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
@@ -10,6 +9,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { auth, db } from '../firebase';
 import { BackButton } from '../components/BackButton';
 import { filterStudentsForTeacher } from '../utils/chatAccess';
+import { pickSingleImage } from '../utils/mediaPicker';
 import { uploadR2File } from '../utils/r2Upload';
 
 const { width } = Dimensions.get('window');
@@ -311,6 +311,8 @@ export default function TeacherQuizzesScreen() {
   
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date(Date.now() + 3600000));
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -425,7 +427,7 @@ export default function TeacherQuizzesScreen() {
   const pickImage = async (id: string, type: 'qUri') => {
     if (isSubmitting) return;
     try {
-      let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+      let result = await pickSingleImage();
       if (!result.canceled) setQuestions(prev => prev.map(q => q.id === id ? { ...q, [type]: result.assets[0].uri } : q));
     } catch (error) {
       console.error('Quiz image picker error:', error);
@@ -587,14 +589,73 @@ export default function TeacherQuizzesScreen() {
                     )}
                   </TouchableOpacity>
                   
+                  {/* Date Picker - Step 1: Pick Date */}
                   {showDatePicker && (
+                    Platform.OS === 'ios' ? (
+                      <Modal transparent animationType="fade" visible={showDatePicker}>
+                        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 30 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E8EDEC' }}>
+                              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                <Text style={{ fontSize: 16, color: '#FF3B30', fontWeight: '700' }}>إلغاء</Text>
+                              </TouchableOpacity>
+                              <Text style={{ fontSize: 17, fontWeight: '800', color: '#10241F' }}>تحديد موعد الانتهاء</Text>
+                              <TouchableOpacity onPress={() => { setDeadline(tempDate); setShowDatePicker(false); }}>
+                                <Text style={{ fontSize: 16, color: '#12453D', fontWeight: '700' }}>تم</Text>
+                              </TouchableOpacity>
+                            </View>
+                            <View style={{ width: '100%', alignItems: 'center' }}>
+                              <DateTimePicker
+                                value={tempDate}
+                                mode="datetime"
+                                display="spinner"
+                                minimumDate={new Date()}
+                                locale="ar"
+                                textColor="#000000"
+                                themeVariant="light"
+                                onChange={(event, selectedDate) => {
+                                  if (selectedDate) setTempDate(selectedDate);
+                                }}
+                                style={{ height: 200, width: width }}
+                              />
+                            </View>
+                          </View>
+                        </View>
+                      </Modal>
+                    ) : (
+                      <DateTimePicker
+                        value={tempDate}
+                        mode="date"
+                        display="default"
+                        minimumDate={new Date()}
+                        onChange={(event, selectedDate) => {
+                          setShowDatePicker(false);
+                          if (event.type === 'dismissed') return;
+                          if (selectedDate) {
+                            setTempDate(selectedDate);
+                            setTimeout(() => setShowTimePicker(true), 300);
+                          }
+                        }}
+                      />
+                    )
+                  )}
+                  {/* Time Picker - Step 2: Pick Time (Android only) */}
+                  {showTimePicker && Platform.OS === 'android' && (
                     <DateTimePicker
-                      value={deadline || new Date(Date.now() + 3600000)}
-                      mode="datetime"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event, selectedDate) => {
-                        setShowDatePicker(false);
-                        if (selectedDate) setDeadline(selectedDate);
+                      value={tempDate}
+                      mode="time"
+                      display="default"
+                      is24Hour={false}
+                      onChange={(event, selectedTime) => {
+                        setShowTimePicker(false);
+                        if (event.type === 'dismissed') return;
+                        if (selectedTime) {
+                          const finalDate = new Date(tempDate);
+                          finalDate.setHours(selectedTime.getHours());
+                          finalDate.setMinutes(selectedTime.getMinutes());
+                          setTempDate(finalDate);
+                          setDeadline(finalDate);
+                        }
                       }}
                     />
                   )}

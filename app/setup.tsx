@@ -119,7 +119,7 @@ export default function SetupScreen() {
         isSetupComplete: true,
       });
 
-      router.replace('/(tabs)');
+      router.replace('/terms');
     } catch (err: any) {
       Alert.alert('خطأ أثناء الحفظ', err.message);
     } finally {

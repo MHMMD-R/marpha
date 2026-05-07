@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator,
   Animated,
   Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,7 +16,8 @@ import { ActivityIndicator,
   Text,
   TextInput,
   TouchableOpacity,
-  View } from 'react-native';
+  View,
+  Image } from 'react-native';
 import { CustomAlert as Alert } from '@/components/CustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../firebase';
@@ -162,6 +164,8 @@ export default function LoginScreen() {
   };
 
   const handleAuth = async () => {
+    Keyboard.dismiss();
+
     if (isLogin && lockoutUntil && Date.now() < lockoutUntil) {
       Alert.alert('تنبيه', `تم حظر الدخول. يرجى المحاولة بعد ${Math.ceil((lockoutUntil - Date.now()) / 60000)} دقيقة`);
       return;
@@ -526,26 +530,39 @@ export default function LoginScreen() {
                 </View>
 
                 {/* TOS Checkbox */}
-                <TouchableOpacity 
-                  style={styles.tosContainer} 
-                  activeOpacity={0.8}
-                  onPress={() => setAcceptedTos(!acceptedTos)}
-                >
-                  <Ionicons 
-                    name={acceptedTos ? "checkbox" : "square-outline"} 
-                    size={22} 
-                    color={acceptedTos ? C.primary : C.borderLight} 
-                  />
-                  <Text style={styles.tosText}>
-                    أوافق على <Text onPress={() => router.push('/privacy')} style={styles.tosLink}>سياسة الخصوصية</Text>
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.tosContainer}>
+                  <TouchableOpacity 
+                    style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}
+                    activeOpacity={0.8}
+                    onPress={() => setAcceptedTos(!acceptedTos)}
+                  >
+                    <Ionicons 
+                      name={acceptedTos ? "checkbox" : "square-outline"} 
+                      size={22} 
+                      color={acceptedTos ? C.primary : C.borderLight} 
+                    />
+                    <Text style={[styles.tosText, { flex: 0 }]}>أوافق على</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => router.push('/terms')} 
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.tosLink, { marginHorizontal: 2 }]}>الشروط</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.tosText, { flex: 0, marginHorizontal: 2 }]}>و</Text>
+                  <TouchableOpacity 
+                    onPress={() => router.push('/privacy')} 
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.tosLink, { marginHorizontal: 2 }]}>الخصوصية</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {/* Submit Button */}
                 <TouchableOpacity
-                  style={[styles.submitBtn, isLoading && { opacity: 0.7 }]}
+                  style={[styles.submitBtn, (isLoading || !acceptedTos) && { opacity: 0.7 }]}
                   onPress={handleAuth}
-                  disabled={isLoading}
+                  disabled={isLoading || !acceptedTos}
                   activeOpacity={0.85}
                 >
                   {isLoading ? (

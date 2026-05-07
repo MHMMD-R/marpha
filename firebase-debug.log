@@ -44,3 +44,429 @@
 [debug] [2026-05-01T15:37:50.103Z] <<< [apiv2][status] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount 200
 [debug] [2026-05-01T15:37:50.103Z] <<< [apiv2][body] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount [omitted]
 [info] +  Exported 5 account(s) successfully. 
+[debug] [2026-05-05T16:55:12.687Z] ----------------------------------------------------------------------
+[debug] [2026-05-05T16:55:12.692Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ahmed\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-05-05T16:55:12.693Z] CLI Version:   15.8.0
+[debug] [2026-05-05T16:55:12.693Z] Platform:      win32
+[debug] [2026-05-05T16:55:12.694Z] Node Version:  v22.16.0
+[debug] [2026-05-05T16:55:12.694Z] Time:          Tue May 05 2026 19:55:12 GMT+0300 (Arabian Standard Time)
+[debug] [2026-05-05T16:55:12.694Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-05T16:55:18.101Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-05T16:55:18.103Z] > authorizing via signed-in user (ttbyqalmrft@gmail.com)
+[debug] [2026-05-05T16:55:18.104Z] [iam] checking project maraph-fcab7 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-05-05T16:55:18.106Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:18.106Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:18.108Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions [none]
+[debug] [2026-05-05T16:55:18.109Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions  x-goog-user-project=maraph-fcab7
+[debug] [2026-05-05T16:55:18.110Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T16:55:19.845Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions 200
+[debug] [2026-05-05T16:55:19.846Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T16:55:19.847Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:19.847Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:19.848Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 [none]
+[debug] [2026-05-05T16:55:20.417Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 200
+[debug] [2026-05-05T16:55:20.417Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 {"projectId":"maraph-fcab7","projectNumber":"619008200445","displayName":"maraph","name":"projects/maraph-fcab7","resources":{"hostingSite":"maraph-fcab7","realtimeDatabaseInstance":"maraph-fcab7-default-rtdb"},"state":"ACTIVE","etag":"1_31cd33c6-96e1-4076-a7ad-466056223f30"}
+[info] 
+[info] === Deploying to 'maraph-fcab7'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-05-05T16:55:20.424Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:20.424Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:20.425Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions [none]
+[debug] [2026-05-05T16:55:20.425Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-05-05T16:55:24.308Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions 200
+[debug] [2026-05-05T16:55:24.309Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"name":"projects/619008200445/sites/maraph-fcab7/versions/dc65442d10b7fd80","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[maraph-fcab7]: beginning deploy... 
+[info] i  hosting[maraph-fcab7]: found 8 files in dashboard/dist 
+[debug] [2026-05-05T16:55:24.358Z] [hosting] uploading with 200 concurrency
+[debug] [2026-05-05T16:55:24.445Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:24.445Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:24.447Z] [hosting] hash cache [ZGFzaGJvYXJkXGRpc3Q] stored for 8 files
+[debug] [2026-05-05T16:55:24.448Z] [hosting][hash queue][FINAL] {"max":78,"min":23,"avg":45.75,"active":0,"complete":8,"success":8,"errored":0,"retried":0,"total":8,"elapsed":87}
+[debug] [2026-05-05T16:55:24.448Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/dc65442d10b7fd80:populateFiles [none]
+[debug] [2026-05-05T16:55:24.449Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/dc65442d10b7fd80:populateFiles {"files":{"/assets/index-C5YD_GtZ.css":"fa0f271f6574374f4106aaccd29ad72d59e7032d286b29bba995b7c01b831013","/icons.svg":"5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5","/favicon.svg":"44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573","/index.html":"13e708cd877499f7e77f31365ba3877eff76fafa40d2fddfde50695173bb89de","/assets/index.esm-292F9Ntw.js":"ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca","/assets/index.esm-CJ9JwOJy.js":"afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea","/assets/index.esm-DoGmDiCn.js":"0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf","/assets/index-5gmEeEvv.js":"c2d9792a124c44a94955937eb79a121bc1cd2c51cf7de7bd7d58a82ab64aaf70"}}
+[debug] [2026-05-05T16:55:25.464Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/dc65442d10b7fd80:populateFiles 200
+[debug] [2026-05-05T16:55:25.464Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/dc65442d10b7fd80:populateFiles {"uploadRequiredHashes":["fa0f271f6574374f4106aaccd29ad72d59e7032d286b29bba995b7c01b831013","5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5","13e708cd877499f7e77f31365ba3877eff76fafa40d2fddfde50695173bb89de","afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea","0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf","44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573","ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca","c2d9792a124c44a94955937eb79a121bc1cd2c51cf7de7bd7d58a82ab64aaf70"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files"}
+[debug] [2026-05-05T16:55:25.465Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.465Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.466Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.466Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.466Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.466Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.467Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.467Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.467Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.468Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.468Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.468Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.468Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.469Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.469Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.469Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:25.469Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/fa0f271f6574374f4106aaccd29ad72d59e7032d286b29bba995b7c01b831013 [none]
+[debug] [2026-05-05T16:55:25.470Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/fa0f271f6574374f4106aaccd29ad72d59e7032d286b29bba995b7c01b831013 [stream]
+[debug] [2026-05-05T16:55:25.472Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5 [none]
+[debug] [2026-05-05T16:55:25.472Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5 [stream]
+[debug] [2026-05-05T16:55:25.474Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/13e708cd877499f7e77f31365ba3877eff76fafa40d2fddfde50695173bb89de [none]
+[debug] [2026-05-05T16:55:25.475Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/13e708cd877499f7e77f31365ba3877eff76fafa40d2fddfde50695173bb89de [stream]
+[debug] [2026-05-05T16:55:25.477Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea [none]
+[debug] [2026-05-05T16:55:25.477Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea [stream]
+[debug] [2026-05-05T16:55:25.479Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf [none]
+[debug] [2026-05-05T16:55:25.479Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf [stream]
+[debug] [2026-05-05T16:55:25.482Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573 [none]
+[debug] [2026-05-05T16:55:25.482Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573 [stream]
+[debug] [2026-05-05T16:55:25.484Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca [none]
+[debug] [2026-05-05T16:55:25.485Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca [stream]
+[debug] [2026-05-05T16:55:25.486Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/c2d9792a124c44a94955937eb79a121bc1cd2c51cf7de7bd7d58a82ab64aaf70 [none]
+[debug] [2026-05-05T16:55:25.487Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/c2d9792a124c44a94955937eb79a121bc1cd2c51cf7de7bd7d58a82ab64aaf70 [stream]
+[debug] [2026-05-05T16:55:25.488Z] [hosting][populate queue][FINAL] {"max":1024,"min":1024,"avg":1024,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1043}
+[debug] [2026-05-05T16:55:25.489Z] [hosting] uploads queued: 8
+[info] i  hosting: uploading new files [0/8] (0%) 
+[debug] [2026-05-05T16:55:26.567Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5 200
+[debug] [2026-05-05T16:55:26.568Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5 [stream]
+[debug] [2026-05-05T16:55:26.589Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573 200
+[debug] [2026-05-05T16:55:26.589Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573 [stream]
+[debug] [2026-05-05T16:55:26.605Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf 200
+[debug] [2026-05-05T16:55:26.605Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf [stream]
+[debug] [2026-05-05T16:55:26.648Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/fa0f271f6574374f4106aaccd29ad72d59e7032d286b29bba995b7c01b831013 200
+[debug] [2026-05-05T16:55:26.648Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/fa0f271f6574374f4106aaccd29ad72d59e7032d286b29bba995b7c01b831013 [stream]
+[debug] [2026-05-05T16:55:26.701Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/13e708cd877499f7e77f31365ba3877eff76fafa40d2fddfde50695173bb89de 200
+[debug] [2026-05-05T16:55:26.702Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/13e708cd877499f7e77f31365ba3877eff76fafa40d2fddfde50695173bb89de [stream]
+[debug] [2026-05-05T16:55:26.793Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea 200
+[debug] [2026-05-05T16:55:26.793Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea [stream]
+[debug] [2026-05-05T16:55:26.916Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/c2d9792a124c44a94955937eb79a121bc1cd2c51cf7de7bd7d58a82ab64aaf70 200
+[debug] [2026-05-05T16:55:26.916Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/c2d9792a124c44a94955937eb79a121bc1cd2c51cf7de7bd7d58a82ab64aaf70 [stream]
+[debug] [2026-05-05T16:55:26.946Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca 200
+[debug] [2026-05-05T16:55:26.946Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/dc65442d10b7fd80/files/ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca [stream]
+[debug] [2026-05-05T16:55:26.946Z] [hosting][upload queue][FINAL] {"max":1478,"min":1102,"avg":1254,"active":0,"complete":8,"success":8,"errored":0,"retried":0,"total":8,"elapsed":1482}
+[info] i  hosting: upload complete 
+[info] +  hosting[maraph-fcab7]: file upload complete 
+[debug] [2026-05-05T16:55:26.947Z] [hosting] deploy completed after 2634ms
+[debug] [2026-05-05T16:55:26.947Z] [
+  {
+    "config": {
+      "public": "dashboard/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "site": "maraph-fcab7"
+    },
+    "version": "projects/619008200445/sites/maraph-fcab7/versions/dc65442d10b7fd80"
+  }
+]
+[info] i  hosting[maraph-fcab7]: finalizing version... 
+[debug] [2026-05-05T16:55:26.950Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:26.950Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:26.950Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/dc65442d10b7fd80 updateMask=status%2Cconfig
+[debug] [2026-05-05T16:55:26.951Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/dc65442d10b7fd80 {"status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]}}
+[debug] [2026-05-05T16:55:28.663Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/dc65442d10b7fd80 200
+[debug] [2026-05-05T16:55:28.664Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/dc65442d10b7fd80 {"name":"projects/619008200445/sites/maraph-fcab7/versions/dc65442d10b7fd80","status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-05-05T16:55:22.499772Z","createUser":{"email":"ttbyqalmrft@gmail.com"},"finalizeTime":"2026-05-05T16:55:28.810366Z","finalizeUser":{"email":"ttbyqalmrft@gmail.com"}}
+[debug] [2026-05-05T16:55:28.664Z] [hosting] finalized version for maraph-fcab7:[object Object]
+[info] +  hosting[maraph-fcab7]: version finalized 
+[info] i  hosting[maraph-fcab7]: releasing new version... 
+[debug] [2026-05-05T16:55:28.665Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:28.665Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:55:28.665Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases versionName=projects%2F619008200445%2Fsites%2Fmaraph-fcab7%2Fversions%2Fdc65442d10b7fd80
+[debug] [2026-05-05T16:55:28.665Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases {}
+[debug] [2026-05-05T16:55:29.890Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases 200
+[debug] [2026-05-05T16:59:19.108Z] ----------------------------------------------------------------------
+[debug] [2026-05-05T16:59:19.115Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ahmed\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-05-05T16:59:19.117Z] CLI Version:   15.8.0
+[debug] [2026-05-05T16:59:19.118Z] Platform:      win32
+[debug] [2026-05-05T16:59:19.118Z] Node Version:  v22.16.0
+[debug] [2026-05-05T16:59:19.120Z] Time:          Tue May 05 2026 19:59:19 GMT+0300 (Arabian Standard Time)
+[debug] [2026-05-05T16:59:19.120Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-05T16:59:25.715Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-05T16:59:25.717Z] > authorizing via signed-in user (ttbyqalmrft@gmail.com)
+[debug] [2026-05-05T16:59:25.718Z] [iam] checking project maraph-fcab7 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-05-05T16:59:25.722Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:25.723Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:25.725Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions [none]
+[debug] [2026-05-05T16:59:25.726Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions  x-goog-user-project=maraph-fcab7
+[debug] [2026-05-05T16:59:25.726Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T16:59:27.358Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions 200
+[debug] [2026-05-05T16:59:27.359Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T16:59:27.360Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:27.361Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:27.361Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 [none]
+[debug] [2026-05-05T16:59:27.944Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 200
+[debug] [2026-05-05T16:59:27.944Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 {"projectId":"maraph-fcab7","projectNumber":"619008200445","displayName":"maraph","name":"projects/maraph-fcab7","resources":{"hostingSite":"maraph-fcab7","realtimeDatabaseInstance":"maraph-fcab7-default-rtdb"},"state":"ACTIVE","etag":"1_31cd33c6-96e1-4076-a7ad-466056223f30"}
+[info] 
+[info] === Deploying to 'maraph-fcab7'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-05-05T16:59:27.952Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:27.952Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:27.952Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions [none]
+[debug] [2026-05-05T16:59:27.953Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-05-05T16:59:30.752Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions 200
+[debug] [2026-05-05T16:59:30.752Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"name":"projects/619008200445/sites/maraph-fcab7/versions/e88a844be9ad0479","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[maraph-fcab7]: beginning deploy... 
+[info] i  hosting[maraph-fcab7]: found 8 files in dashboard/dist 
+[debug] [2026-05-05T16:59:30.772Z] [hosting] uploading with 200 concurrency
+[debug] [2026-05-05T16:59:30.827Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:30.827Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:30.829Z] [hosting] hash cache [ZGFzaGJvYXJkXGRpc3Q] stored for 8 files
+[debug] [2026-05-05T16:59:30.830Z] [hosting][hash queue][FINAL] {"max":48,"min":3,"avg":14.875,"active":0,"complete":8,"success":8,"errored":0,"retried":0,"total":8,"elapsed":55}
+[debug] [2026-05-05T16:59:30.831Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/e88a844be9ad0479:populateFiles [none]
+[debug] [2026-05-05T16:59:30.831Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/e88a844be9ad0479:populateFiles {"files":{"/icons.svg":"5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5","/favicon.svg":"44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573","/index.html":"13e708cd877499f7e77f31365ba3877eff76fafa40d2fddfde50695173bb89de","/assets/index.esm-CJ9JwOJy.js":"afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea","/assets/index-C5YD_GtZ.css":"fa0f271f6574374f4106aaccd29ad72d59e7032d286b29bba995b7c01b831013","/assets/index.esm-DoGmDiCn.js":"0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf","/assets/index.esm-292F9Ntw.js":"ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca","/assets/index-5gmEeEvv.js":"c2d9792a124c44a94955937eb79a121bc1cd2c51cf7de7bd7d58a82ab64aaf70"}}
+[debug] [2026-05-05T16:59:31.874Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/e88a844be9ad0479:populateFiles 200
+[debug] [2026-05-05T16:59:31.874Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/e88a844be9ad0479:populateFiles {"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/e88a844be9ad0479/files"}
+[debug] [2026-05-05T16:59:31.875Z] [hosting][populate queue][FINAL] {"max":1048,"min":1048,"avg":1048,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1048}
+[debug] [2026-05-05T16:59:31.876Z] [hosting] uploads queued: 0
+[debug] [2026-05-05T16:59:31.876Z] [hosting][upload queue][FINAL] {"max":0,"min":9999999999,"avg":0,"active":0,"complete":0,"success":0,"errored":0,"retried":0,"total":0,"elapsed":1778000371876}
+[info] i  hosting: upload complete 
+[info] +  hosting[maraph-fcab7]: file upload complete 
+[debug] [2026-05-05T16:59:31.877Z] [hosting] deploy completed after 1121ms
+[debug] [2026-05-05T16:59:31.878Z] [
+  {
+    "config": {
+      "public": "dashboard/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "site": "maraph-fcab7"
+    },
+    "version": "projects/619008200445/sites/maraph-fcab7/versions/e88a844be9ad0479"
+  }
+]
+[info] i  hosting[maraph-fcab7]: finalizing version... 
+[debug] [2026-05-05T16:59:31.881Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:31.882Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:31.882Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/e88a844be9ad0479 updateMask=status%2Cconfig
+[debug] [2026-05-05T16:59:31.882Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/e88a844be9ad0479 {"status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]}}
+[debug] [2026-05-05T16:59:33.349Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/e88a844be9ad0479 200
+[debug] [2026-05-05T16:59:33.349Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/e88a844be9ad0479 {"name":"projects/619008200445/sites/maraph-fcab7/versions/e88a844be9ad0479","status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-05-05T16:59:30.056158Z","createUser":{"email":"ttbyqalmrft@gmail.com"},"finalizeTime":"2026-05-05T16:59:33.494240Z","finalizeUser":{"email":"ttbyqalmrft@gmail.com"}}
+[debug] [2026-05-05T16:59:33.349Z] [hosting] finalized version for maraph-fcab7:[object Object]
+[info] +  hosting[maraph-fcab7]: version finalized 
+[info] i  hosting[maraph-fcab7]: releasing new version... 
+[debug] [2026-05-05T16:59:33.350Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:33.350Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T16:59:33.350Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases versionName=projects%2F619008200445%2Fsites%2Fmaraph-fcab7%2Fversions%2Fe88a844be9ad0479
+[debug] [2026-05-05T16:59:33.350Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases {}
+[debug] [2026-05-05T16:59:34.971Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases 200
+[debug] [2026-05-05T17:18:15.909Z] ----------------------------------------------------------------------
+[debug] [2026-05-05T17:18:15.912Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ahmed\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-05-05T17:18:15.913Z] CLI Version:   15.8.0
+[debug] [2026-05-05T17:18:15.913Z] Platform:      win32
+[debug] [2026-05-05T17:18:15.913Z] Node Version:  v22.16.0
+[debug] [2026-05-05T17:18:15.913Z] Time:          Tue May 05 2026 20:18:15 GMT+0300 (Arabian Standard Time)
+[debug] [2026-05-05T17:18:15.914Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-05T17:18:19.774Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-05T17:18:19.776Z] > authorizing via signed-in user (ttbyqalmrft@gmail.com)
+[debug] [2026-05-05T17:18:19.776Z] [iam] checking project maraph-fcab7 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-05-05T17:18:19.778Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:19.778Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:19.781Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions [none]
+[debug] [2026-05-05T17:18:19.781Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions  x-goog-user-project=maraph-fcab7
+[debug] [2026-05-05T17:18:19.782Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T17:18:21.452Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions 200
+[debug] [2026-05-05T17:18:21.452Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T17:18:21.453Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:21.454Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:21.454Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 [none]
+[debug] [2026-05-05T17:18:22.024Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 200
+[debug] [2026-05-05T17:18:22.024Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 {"projectId":"maraph-fcab7","projectNumber":"619008200445","displayName":"maraph","name":"projects/maraph-fcab7","resources":{"hostingSite":"maraph-fcab7","realtimeDatabaseInstance":"maraph-fcab7-default-rtdb"},"state":"ACTIVE","etag":"1_31cd33c6-96e1-4076-a7ad-466056223f30"}
+[info] 
+[info] === Deploying to 'maraph-fcab7'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-05-05T17:18:22.028Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:22.028Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:22.028Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions [none]
+[debug] [2026-05-05T17:18:22.028Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-05-05T17:18:24.664Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions 200
+[debug] [2026-05-05T17:18:24.664Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"name":"projects/619008200445/sites/maraph-fcab7/versions/3e1ca795ee72c95c","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[maraph-fcab7]: beginning deploy... 
+[info] i  hosting[maraph-fcab7]: found 8 files in dashboard/dist 
+[debug] [2026-05-05T17:18:24.681Z] [hosting] uploading with 200 concurrency
+[debug] [2026-05-05T17:18:24.715Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:24.715Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:24.716Z] [hosting] hash cache [ZGFzaGJvYXJkXGRpc3Q] stored for 8 files
+[debug] [2026-05-05T17:18:24.717Z] [hosting][hash queue][FINAL] {"max":30,"min":2,"avg":9,"active":0,"complete":8,"success":8,"errored":0,"retried":0,"total":8,"elapsed":34}
+[debug] [2026-05-05T17:18:24.717Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/3e1ca795ee72c95c:populateFiles [none]
+[debug] [2026-05-05T17:18:24.717Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/3e1ca795ee72c95c:populateFiles {"files":{"/icons.svg":"5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5","/favicon.svg":"44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573","/index.html":"1c5ceaf351e525ec518642891053f2589abbf4e9511b48dac86de1325ededa21","/assets/index-D0CoGKKC.css":"2c67f52cacd926927b9e7baaa4d84578c8c879394ea130ea3a823ae255b52f2e","/assets/index.esm-DoGmDiCn.js":"0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf","/assets/index.esm-CJ9JwOJy.js":"afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea","/assets/index.esm-292F9Ntw.js":"ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca","/assets/index-2xhC5Pb-.js":"e743b0fe79f9b2a300923f8bc86c5b5bbf7ab51fd1744f1731b02bfcdf601f4a"}}
+[debug] [2026-05-05T17:18:25.662Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/3e1ca795ee72c95c:populateFiles 200
+[debug] [2026-05-05T17:18:25.662Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/3e1ca795ee72c95c:populateFiles {"uploadRequiredHashes":["1c5ceaf351e525ec518642891053f2589abbf4e9511b48dac86de1325ededa21","2c67f52cacd926927b9e7baaa4d84578c8c879394ea130ea3a823ae255b52f2e","e743b0fe79f9b2a300923f8bc86c5b5bbf7ab51fd1744f1731b02bfcdf601f4a"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files"}
+[debug] [2026-05-05T17:18:25.663Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:25.663Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:25.663Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:25.663Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:25.664Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:25.664Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:25.664Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/1c5ceaf351e525ec518642891053f2589abbf4e9511b48dac86de1325ededa21 [none]
+[debug] [2026-05-05T17:18:25.664Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/1c5ceaf351e525ec518642891053f2589abbf4e9511b48dac86de1325ededa21 [stream]
+[debug] [2026-05-05T17:18:25.666Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/2c67f52cacd926927b9e7baaa4d84578c8c879394ea130ea3a823ae255b52f2e [none]
+[debug] [2026-05-05T17:18:25.666Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/2c67f52cacd926927b9e7baaa4d84578c8c879394ea130ea3a823ae255b52f2e [stream]
+[debug] [2026-05-05T17:18:25.667Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/e743b0fe79f9b2a300923f8bc86c5b5bbf7ab51fd1744f1731b02bfcdf601f4a [none]
+[debug] [2026-05-05T17:18:25.668Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/e743b0fe79f9b2a300923f8bc86c5b5bbf7ab51fd1744f1731b02bfcdf601f4a [stream]
+[debug] [2026-05-05T17:18:25.669Z] [hosting][populate queue][FINAL] {"max":949,"min":949,"avg":949,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":954}
+[debug] [2026-05-05T17:18:25.670Z] [hosting] uploads queued: 3
+[info] i  hosting: uploading new files [0/3] (0%) 
+[debug] [2026-05-05T17:18:26.934Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/2c67f52cacd926927b9e7baaa4d84578c8c879394ea130ea3a823ae255b52f2e 200
+[debug] [2026-05-05T17:18:26.934Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/2c67f52cacd926927b9e7baaa4d84578c8c879394ea130ea3a823ae255b52f2e [stream]
+[debug] [2026-05-05T17:18:26.975Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/1c5ceaf351e525ec518642891053f2589abbf4e9511b48dac86de1325ededa21 200
+[debug] [2026-05-05T17:18:26.975Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/1c5ceaf351e525ec518642891053f2589abbf4e9511b48dac86de1325ededa21 [stream]
+[debug] [2026-05-05T17:18:27.117Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/e743b0fe79f9b2a300923f8bc86c5b5bbf7ab51fd1744f1731b02bfcdf601f4a 200
+[debug] [2026-05-05T17:18:27.118Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/3e1ca795ee72c95c/files/e743b0fe79f9b2a300923f8bc86c5b5bbf7ab51fd1744f1731b02bfcdf601f4a [stream]
+[debug] [2026-05-05T17:18:27.118Z] [hosting][upload queue][FINAL] {"max":1455,"min":1271,"avg":1346.3333333333333,"active":0,"complete":3,"success":3,"errored":0,"retried":0,"total":3,"elapsed":1456}
+[info] i  hosting: upload complete 
+[info] +  hosting[maraph-fcab7]: file upload complete 
+[debug] [2026-05-05T17:18:27.118Z] [hosting] deploy completed after 2451ms
+[debug] [2026-05-05T17:18:27.118Z] [
+  {
+    "config": {
+      "public": "dashboard/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "site": "maraph-fcab7"
+    },
+    "version": "projects/619008200445/sites/maraph-fcab7/versions/3e1ca795ee72c95c"
+  }
+]
+[info] i  hosting[maraph-fcab7]: finalizing version... 
+[debug] [2026-05-05T17:18:27.120Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:27.120Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:27.120Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/3e1ca795ee72c95c updateMask=status%2Cconfig
+[debug] [2026-05-05T17:18:27.120Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/3e1ca795ee72c95c {"status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]}}
+[debug] [2026-05-05T17:18:28.648Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/3e1ca795ee72c95c 200
+[debug] [2026-05-05T17:18:28.648Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/3e1ca795ee72c95c {"name":"projects/619008200445/sites/maraph-fcab7/versions/3e1ca795ee72c95c","status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-05-05T17:18:23.955579Z","createUser":{"email":"ttbyqalmrft@gmail.com"},"finalizeTime":"2026-05-05T17:18:28.806196Z","finalizeUser":{"email":"ttbyqalmrft@gmail.com"}}
+[debug] [2026-05-05T17:18:28.648Z] [hosting] finalized version for maraph-fcab7:[object Object]
+[info] +  hosting[maraph-fcab7]: version finalized 
+[info] i  hosting[maraph-fcab7]: releasing new version... 
+[debug] [2026-05-05T17:18:28.649Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:28.649Z] Checked if tokens are valid: true, expires at: 1778003538446
+[debug] [2026-05-05T17:18:28.649Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases versionName=projects%2F619008200445%2Fsites%2Fmaraph-fcab7%2Fversions%2F3e1ca795ee72c95c
+[debug] [2026-05-05T17:18:28.649Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases {}
+[debug] [2026-05-05T17:18:30.195Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases 200
+[debug] [2026-05-05T17:55:48.770Z] ----------------------------------------------------------------------
+[debug] [2026-05-05T17:55:48.776Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ahmed\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-05-05T17:55:48.777Z] CLI Version:   15.8.0
+[debug] [2026-05-05T17:55:48.777Z] Platform:      win32
+[debug] [2026-05-05T17:55:48.778Z] Node Version:  v22.16.0
+[debug] [2026-05-05T17:55:48.778Z] Time:          Tue May 05 2026 20:55:48 GMT+0300 (Arabian Standard Time)
+[debug] [2026-05-05T17:55:48.778Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-05T17:55:55.757Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-05T17:55:55.759Z] > authorizing via signed-in user (ttbyqalmrft@gmail.com)
+[debug] [2026-05-05T17:55:55.760Z] [iam] checking project maraph-fcab7 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-05-05T17:55:55.763Z] Checked if tokens are valid: false, expires at: 1778003538446
+[debug] [2026-05-05T17:55:55.764Z] Checked if tokens are valid: false, expires at: 1778003538446
+[debug] [2026-05-05T17:55:55.764Z] > refreshing access token with scopes: []
+[debug] [2026-05-05T17:55:55.768Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-05-05T17:55:55.769Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-05T17:55:56.298Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-05-05T17:55:56.298Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-05T17:55:56.315Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions [none]
+[debug] [2026-05-05T17:55:56.315Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions  x-goog-user-project=maraph-fcab7
+[debug] [2026-05-05T17:55:56.315Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T17:55:56.887Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions 200
+[debug] [2026-05-05T17:55:56.887Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/maraph-fcab7:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-05T17:55:56.888Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:55:56.889Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:55:56.889Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 [none]
+[debug] [2026-05-05T17:55:57.455Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 200
+[debug] [2026-05-05T17:55:57.455Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/maraph-fcab7 {"projectId":"maraph-fcab7","projectNumber":"619008200445","displayName":"maraph","name":"projects/maraph-fcab7","resources":{"hostingSite":"maraph-fcab7","realtimeDatabaseInstance":"maraph-fcab7-default-rtdb"},"state":"ACTIVE","etag":"1_31cd33c6-96e1-4076-a7ad-466056223f30"}
+[info] 
+[info] === Deploying to 'maraph-fcab7'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-05-05T17:55:57.461Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:55:57.461Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:55:57.462Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions [none]
+[debug] [2026-05-05T17:55:57.462Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-05-05T17:56:00.285Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions 200
+[debug] [2026-05-05T17:56:00.285Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions {"name":"projects/619008200445/sites/maraph-fcab7/versions/ca439c407a077990","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[maraph-fcab7]: beginning deploy... 
+[info] i  hosting[maraph-fcab7]: found 8 files in dashboard/dist 
+[debug] [2026-05-05T17:56:00.318Z] [hosting] uploading with 200 concurrency
+[debug] [2026-05-05T17:56:00.375Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:00.375Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:00.377Z] [hosting] hash cache [ZGFzaGJvYXJkXGRpc3Q] stored for 8 files
+[debug] [2026-05-05T17:56:00.377Z] [hosting][hash queue][FINAL] {"max":47,"min":3,"avg":17.875,"active":0,"complete":8,"success":8,"errored":0,"retried":0,"total":8,"elapsed":53}
+[debug] [2026-05-05T17:56:00.378Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/ca439c407a077990:populateFiles [none]
+[debug] [2026-05-05T17:56:00.378Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/ca439c407a077990:populateFiles {"files":{"/icons.svg":"5ba780ad60ab99c201a39f76f7bd4c05b552383ca985c5f2dc35f7bbb1551fe5","/favicon.svg":"44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573","/assets/index.esm-CJ9JwOJy.js":"afcde95f8704ab6ad18934ee47d78c4316fb9b6a367e5b10dc10e0c39eabcbea","/assets/index.esm-DoGmDiCn.js":"0b0755e00daf0406bd8d53814754939dea0e4ef91b472bd9a9295586a72af1bf","/assets/index-D0CoGKKC.css":"2c67f52cacd926927b9e7baaa4d84578c8c879394ea130ea3a823ae255b52f2e","/index.html":"2bb7951811206a8ea581f71010dff93427c4371e50ffee01dd321a91e68d46ff","/assets/index.esm-292F9Ntw.js":"ec6109e2401ae43f41d316f0bc282e0f87a3f46524381bfc9fdaa94c623da3ca","/assets/index-ifGYHkhc.js":"7e82b2935e112e3e223c4bfc0a7a7f0c0feb9439ae889b4773d7ff43064772fc"}}
+[debug] [2026-05-05T17:56:01.869Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/ca439c407a077990:populateFiles 200
+[debug] [2026-05-05T17:56:01.870Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/619008200445/sites/maraph-fcab7/versions/ca439c407a077990:populateFiles {"uploadRequiredHashes":["2bb7951811206a8ea581f71010dff93427c4371e50ffee01dd321a91e68d46ff","7e82b2935e112e3e223c4bfc0a7a7f0c0feb9439ae889b4773d7ff43064772fc"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files"}
+[debug] [2026-05-05T17:56:01.871Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:01.871Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:01.872Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:01.872Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:01.872Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/2bb7951811206a8ea581f71010dff93427c4371e50ffee01dd321a91e68d46ff [none]
+[debug] [2026-05-05T17:56:01.873Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/2bb7951811206a8ea581f71010dff93427c4371e50ffee01dd321a91e68d46ff [stream]
+[debug] [2026-05-05T17:56:01.875Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/7e82b2935e112e3e223c4bfc0a7a7f0c0feb9439ae889b4773d7ff43064772fc [none]
+[debug] [2026-05-05T17:56:01.875Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/7e82b2935e112e3e223c4bfc0a7a7f0c0feb9439ae889b4773d7ff43064772fc [stream]
+[debug] [2026-05-05T17:56:01.877Z] [hosting][populate queue][FINAL] {"max":1497,"min":1497,"avg":1497,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1502}
+[debug] [2026-05-05T17:56:01.878Z] [hosting] uploads queued: 2
+[info] i  hosting: uploading new files [0/2] (0%) 
+[debug] [2026-05-05T17:56:03.186Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/2bb7951811206a8ea581f71010dff93427c4371e50ffee01dd321a91e68d46ff 200
+[debug] [2026-05-05T17:56:03.187Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/2bb7951811206a8ea581f71010dff93427c4371e50ffee01dd321a91e68d46ff [stream]
+[debug] [2026-05-05T17:56:03.350Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/7e82b2935e112e3e223c4bfc0a7a7f0c0feb9439ae889b4773d7ff43064772fc 200
+[debug] [2026-05-05T17:56:03.350Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/maraph-fcab7/versions/ca439c407a077990/files/7e82b2935e112e3e223c4bfc0a7a7f0c0feb9439ae889b4773d7ff43064772fc [stream]
+[debug] [2026-05-05T17:56:03.350Z] [hosting][upload queue][FINAL] {"max":1479,"min":1317,"avg":1398,"active":0,"complete":2,"success":2,"errored":0,"retried":0,"total":2,"elapsed":1480}
+[info] i  hosting: upload complete 
+[info] +  hosting[maraph-fcab7]: file upload complete 
+[debug] [2026-05-05T17:56:03.351Z] [hosting] deploy completed after 3061ms
+[debug] [2026-05-05T17:56:03.351Z] [
+  {
+    "config": {
+      "public": "dashboard/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "site": "maraph-fcab7"
+    },
+    "version": "projects/619008200445/sites/maraph-fcab7/versions/ca439c407a077990"
+  }
+]
+[info] i  hosting[maraph-fcab7]: finalizing version... 
+[debug] [2026-05-05T17:56:03.354Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:03.355Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:03.355Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/ca439c407a077990 updateMask=status%2Cconfig
+[debug] [2026-05-05T17:56:03.356Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/ca439c407a077990 {"status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]}}
+[debug] [2026-05-05T17:56:04.885Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/ca439c407a077990 200
+[debug] [2026-05-05T17:56:04.886Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/versions/ca439c407a077990 {"name":"projects/619008200445/sites/maraph-fcab7/versions/ca439c407a077990","status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-05-05T17:55:59.353027Z","createUser":{"email":"ttbyqalmrft@gmail.com"},"finalizeTime":"2026-05-05T17:56:05.144267Z","finalizeUser":{"email":"ttbyqalmrft@gmail.com"}}
+[debug] [2026-05-05T17:56:04.886Z] [hosting] finalized version for maraph-fcab7:[object Object]
+[info] +  hosting[maraph-fcab7]: version finalized 
+[info] i  hosting[maraph-fcab7]: releasing new version... 
+[debug] [2026-05-05T17:56:04.887Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:04.887Z] Checked if tokens are valid: true, expires at: 1778007355299
+[debug] [2026-05-05T17:56:04.888Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases versionName=projects%2F619008200445%2Fsites%2Fmaraph-fcab7%2Fversions%2Fca439c407a077990
+[debug] [2026-05-05T17:56:04.888Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases {}
+[debug] [2026-05-05T17:56:06.487Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/maraph-fcab7/channels/live/releases 200

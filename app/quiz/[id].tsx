@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { usePreventScreenCapture } from 'expo-screen-capture';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
@@ -9,6 +8,7 @@ import { CustomAlert as Alert } from '@/components/CustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../../firebase';
 import { BackButton } from '../../components/BackButton';
+import { pickSingleImage } from '../../utils/mediaPicker';
 import { uploadR2File } from '../../utils/r2Upload';
 
 const C = {
@@ -105,7 +105,7 @@ export default function TakeQuizScreen() {
   const pickImage = async (qIdx: number) => {
     if (isSubmitting) return;
     try {
-      let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+      let result = await pickSingleImage();
       if (!result.canceled) {
         setAnswers(prev => ({ ...prev, [qIdx]: result.assets[0].uri }));
       }
