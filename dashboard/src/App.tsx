@@ -2424,7 +2424,6 @@ function App() {
                     setNewQuizSubject(teacher?.subject || "");
                   }}
                   required
-                  style={{ padding: "12px 14px", border: "1px solid var(--border-medium)", borderRadius: "12px", fontFamily: "inherit", background: "transparent" }}
                 >
                   <option value="">اختر المعلم...</option>
                   {teachers.map((teacher: any) => (
@@ -2440,7 +2439,6 @@ function App() {
                 <select
                   value={newQuizSubject}
                   onChange={(e) => setNewQuizSubject(e.target.value)}
-                  style={{ padding: "12px 14px", border: "1px solid var(--border-medium)", borderRadius: "12px", fontFamily: "inherit", background: "transparent" }}
                 >
                   <option value="">حسب مادة المعلم / عام</option>
                   {IRAQI_SUBJECTS.map((subject) => (
@@ -2804,7 +2802,6 @@ function App() {
                   }}
                   required
                   disabled={isAddingVideo}
-                  style={{ textAlign: "right" }}
                 >
                   <option value="" disabled>اختر المعلم...</option>
                   {teachers.map(t => (
@@ -2837,7 +2834,7 @@ function App() {
                     }
                   }}
                   disabled={isAddingVideo || !newVideoTeacherId}
-                  style={{ textAlign: "right", marginBottom: isCreatingNewPlaylist ? '10px' : '0' }}
+                  style={{ marginBottom: isCreatingNewPlaylist ? '10px' : '0' }}
                 >
                   <option value="">بدون قائمة تشغيل (عام)</option>
                   {newVideoTeacherId && Array.from(new Set(
